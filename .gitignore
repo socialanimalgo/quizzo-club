@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Claude
+.claude/
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+
+# Original source files (now in src/)
+/Lingoo.tsx
+/CertSearch.tsx
+/lingoo-audio.ts
+/lingoo-data.ts
+/lingoo-translations.ts
+/lingoo-vocab-images.ts
+
+# Original assets (now in public/)
+/lingee-eyes-closed.png
+/lingee-eyes-closed.webp
+/lingee-eyes-open.png
+/lingee-eyes-open.webp
+/lingee-loading-closed.webp
+/lingee-loading-open.webp
+/lingee-logo.png
+/public-lingee/
+/originals/
