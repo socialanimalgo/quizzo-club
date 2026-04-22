@@ -1,7 +1,7 @@
 // Run: node server/seeds/questions.js
 // Seeds ~360 questions across 6 categories
 
-require('dotenv').config();
+try { require('dotenv').config(); } catch {}
 const { Pool } = require('pg');
 
 const pool = new Pool({
