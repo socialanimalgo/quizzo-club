@@ -1,15 +1,15 @@
 const API_BASE = '/api'
 
 function getToken(): string | null {
-  return localStorage.getItem('lingee-token')
+  return localStorage.getItem('quizzo-token')
 }
 
 export function setToken(token: string) {
-  localStorage.setItem('lingee-token', token)
+  localStorage.setItem('quizzo-token', token)
 }
 
 export function clearToken() {
-  localStorage.removeItem('lingee-token')
+  localStorage.removeItem('quizzo-token')
 }
 
 async function apiFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -44,16 +44,42 @@ export const api = {
       }),
     logout: () => { clearToken() },
   },
-  progress: {
-    load: () => apiFetch<{ progress: any; completions: any[] }>('/progress'),
-    save: (data: any) => apiFetch('/progress', { method: 'PUT', body: JSON.stringify(data) }),
+  quiz: {
+    categories: () => apiFetch<{ categories: any[] }>('/quiz/categories'),
+    start: (category_id: string, count = 10) =>
+      apiFetch<{ session_id: string; questions: any[] }>('/quiz/start', {
+        method: 'POST',
+        body: JSON.stringify({ category_id, count }),
+      }),
+    answer: (session_id: string, question_id: string, answer_index: number, time_ms: number) =>
+      apiFetch<{ correct: boolean; correct_index: number; points: number }>('/quiz/answer', {
+        method: 'POST',
+        body: JSON.stringify({ session_id, question_id, answer_index, time_ms }),
+      }),
+    finish: (session_id: string) =>
+      apiFetch<{ session: any; xp_earned: number; percentage: number }>('/quiz/finish', {
+        method: 'POST',
+        body: JSON.stringify({ session_id }),
+      }),
+    daily: () => apiFetch<{ questions: any[]; already_completed: boolean; completion: any }>('/quiz/daily'),
+    session: (id: string) => apiFetch<{ session: any }>(`/quiz/session/${id}`),
   },
-  completions: {
-    save: (data: any) => apiFetch('/completions', { method: 'POST', body: JSON.stringify(data) }),
+  leaderboard: {
+    get: (type: 'alltime' | 'weekly' | 'daily' = 'alltime') =>
+      apiFetch<{ leaderboard: any[]; my_rank: any }>(`/leaderboard?type=${type}`),
   },
-  certificates: {
-    save: (data: any) => apiFetch('/certificates', { method: 'POST', body: JSON.stringify(data) }),
-    verify: (number: string) => apiFetch<{ certificate: any }>(`/certificates/${encodeURIComponent(number)}`),
+  challenges: {
+    create: (category_id: string, mode: 'challenge' | 'hunter' = 'challenge') =>
+      apiFetch<{ challenge_id: string; share_code: string; session_id: string; questions: any[] }>('/challenges/create', {
+        method: 'POST',
+        body: JSON.stringify({ category_id, mode }),
+      }),
+    get: (code: string) => apiFetch<{ challenge: any }>(`/challenges/${code}`),
+    accept: (code: string) =>
+      apiFetch<{ challenge_id: string; session_id: string; category_id: string; mode: string; questions: any[] }>(`/challenges/${code}/accept`, {
+        method: 'POST',
+      }),
+    complete: (id: string) => apiFetch<any>(`/challenges/${id}/complete`, { method: 'POST' }),
   },
   subscription: {
     get: () => apiFetch<any>('/subscription'),
@@ -76,5 +102,11 @@ export const api = {
   },
   admin: {
     getStats: () => apiFetch<any>('/admin/stats'),
+    getQuestions: (params?: { category?: string; page?: number }) => {
+      const qs = new URLSearchParams()
+      if (params?.category) qs.set('category', params.category)
+      if (params?.page) qs.set('page', String(params.page))
+      return apiFetch<{ questions: any[]; total: number }>(`/admin/questions?${qs}`)
+    },
   },
 }

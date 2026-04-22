@@ -186,8 +186,8 @@ export default function Subscribe() {
       <header className="sticky top-0 z-20 bg-indigo-950/80 backdrop-blur-md border-b border-white/10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2">
-            <img src="/lingee-eyes-open.png" alt="Lingee" className="h-8" />
-            <span className="font-bold text-white text-lg hidden sm:block">Lingee</span>
+            <span className="text-2xl">🧠</span>
+            <span className="font-bold text-white text-lg hidden sm:block">Quizzo Club</span>
           </a>
 
           {/* Language picker */}
@@ -293,15 +293,15 @@ export default function Subscribe() {
       <section className="hidden md:block max-w-4xl mx-auto px-6 pb-16">
         <div className="bg-white/5 backdrop-blur rounded-3xl border border-white/10 overflow-hidden">
           <div className="grid grid-cols-3 text-sm">
-            <div className="p-4 font-semibold text-white/50 border-b border-white/10">Feature</div>
-            <div className="p-4 font-semibold text-white/70 border-b border-white/10 text-center">Free</div>
+            <div className="p-4 font-semibold text-white/50 border-b border-white/10">Značajka</div>
+            <div className="p-4 font-semibold text-white/70 border-b border-white/10 text-center">Besplatno</div>
             <div className="p-4 font-semibold text-indigo-300 border-b border-white/10 text-center">Pro ✨</div>
             {[
-              ['Hearts / day', '3', '∞'],
-              ['Lessons per category', '2', '∞'],
-              ['Certificates', '—', '✓'],
-              ['Job applications', '—', '∞'],
-              ['Support', 'Standard', 'Priority'],
+              ['Kvizovi dnevno', '5', '∞'],
+              ['Hunter Mode izazovi', '—', '✓'],
+              ['Detaljne statistike', '—', '✓'],
+              ['Dnevni kviz', '✓', '✓'],
+              ['Podrška', 'Standardna', 'Prioritetna'],
             ].map(([feat, free, pro], i) => (
               <>
                 <div key={`f${i}`} className={`p-4 text-white/60 ${i < 4 ? 'border-b border-white/5' : ''}`}>{feat}</div>
@@ -316,9 +316,9 @@ export default function Subscribe() {
       {/* Footer */}
       <footer className="border-t border-white/10 py-6 px-4 text-center">
         <div className="flex items-center justify-center gap-4 text-xs text-indigo-400/60">
-          <a href="/" className="hover:text-indigo-300">{strings.en.backToApp}</a>
+          <a href="/" className="hover:text-indigo-300">{strings.hr.backToApp}</a>
           <span>·</span>
-          <span>© {new Date().getFullYear()} Lingee</span>
+          <span>© {new Date().getFullYear()} Quizzo Club</span>
         </div>
       </footer>
     </div>

@@ -2,7 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const https = require('https');
-const authMiddleware = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const { sendWelcomeEmail } = require('../lib/email');
 
 const router = express.Router();
@@ -10,7 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
 function getBaseUrl() {
   return process.env.BASE_URL ||
-    (process.env.NODE_ENV === 'production' ? 'https://lingee.app' : 'http://localhost:5173');
+    (process.env.NODE_ENV === 'production' ? 'https://quizzo.club' : 'http://localhost:5173');
 }
 
 function createToken(userId) {

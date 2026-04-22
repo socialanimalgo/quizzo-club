@@ -31,9 +31,9 @@ export default function SignUp() {
     <div className="min-h-screen bg-gradient-to-b from-indigo-50 to-white flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         <div className="text-center mb-8">
-          <img src="/lingee-eyes-open.png" alt="Lingee" className="h-16 mx-auto mb-3" />
-          <h1 className="text-2xl font-bold text-gray-900">Create account</h1>
-          <p className="text-gray-500 text-sm mt-1">Start learning Croatian today</p>
+          <div className="text-5xl mb-3">🧠</div>
+          <h1 className="text-2xl font-bold text-gray-900">Stvori račun</h1>
+          <p className="text-gray-500 text-sm mt-1">Pridruži se Quizzo Clubu besplatno</p>
         </div>
 
         <div className="bg-white rounded-3xl shadow-xl p-8">
@@ -48,12 +48,12 @@ export default function SignUp() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Continue with Google
+            Nastavi s Googleom
           </a>
 
           <div className="flex items-center gap-3 mb-6">
             <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-xs text-gray-400 font-medium">or</span>
+            <span className="text-xs text-gray-400 font-medium">ili</span>
             <div className="flex-1 h-px bg-gray-200" />
           </div>
 
@@ -66,7 +66,7 @@ export default function SignUp() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">First name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ime</label>
                 <input
                   type="text"
                   value={form.first_name}
@@ -77,7 +77,7 @@ export default function SignUp() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Last name</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Prezime</label>
                 <input
                   type="text"
                   value={form.last_name}
@@ -95,11 +95,11 @@ export default function SignUp() {
                 onChange={e => set('email', e.target.value)}
                 required
                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 transition-colors"
-                placeholder="you@example.com"
+                placeholder="ti@primjer.com"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Lozinka</label>
               <input
                 type="password"
                 value={form.password}
@@ -107,7 +107,7 @@ export default function SignUp() {
                 required
                 minLength={8}
                 className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-indigo-400 transition-colors"
-                placeholder="At least 8 characters"
+                placeholder="Najmanje 8 znakova"
               />
             </div>
             <button
@@ -115,14 +115,14 @@ export default function SignUp() {
               disabled={loading}
               className="w-full bg-indigo-600 text-white font-semibold py-3 rounded-2xl hover:bg-indigo-700 transition-colors disabled:opacity-60"
             >
-              {loading ? 'Creating account…' : 'Create Account'}
+              {loading ? 'Registracija…' : 'Stvori račun'}
             </button>
           </form>
 
           <p className="text-center text-sm text-gray-500 mt-6">
-            Already have an account?{' '}
+            Već imaš račun?{' '}
             <Link to="/signin" className="text-indigo-600 font-medium hover:underline">
-              Sign in
+              Prijavi se
             </Link>
           </p>
         </div>

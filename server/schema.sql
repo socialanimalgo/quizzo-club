@@ -1,60 +1,15 @@
+-- Users
 CREATE TABLE IF NOT EXISTS users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
+  password_hash TEXT,
   first_name TEXT DEFAULT '',
   last_name TEXT DEFAULT '',
+  google_id TEXT UNIQUE,
+  avatar_url TEXT,
+  is_admin BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE TABLE IF NOT EXISTS lingoo_progress (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  total_xp INTEGER DEFAULT 0 NOT NULL,
-  current_streak INTEGER DEFAULT 0 NOT NULL,
-  longest_streak INTEGER DEFAULT 0 NOT NULL,
-  last_active_date DATE,
-  hearts INTEGER DEFAULT 5 NOT NULL,
-  hearts_last_refill TIMESTAMPTZ DEFAULT NOW(),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT lingoo_progress_user_unique UNIQUE(user_id)
-);
-
-CREATE TABLE IF NOT EXISTS lingoo_lesson_completions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  category_id TEXT NOT NULL,
-  lesson_index INTEGER NOT NULL,
-  xp_earned INTEGER DEFAULT 0 NOT NULL,
-  score DECIMAL(5,2) DEFAULT 0 NOT NULL,
-  completed_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT lingoo_completion_unique UNIQUE(user_id, category_id, lesson_index)
-);
-
-CREATE TABLE IF NOT EXISTS lingoo_certificates (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
-  certificate_number TEXT UNIQUE NOT NULL,
-  specialization_id TEXT NOT NULL,
-  specialization_name TEXT NOT NULL,
-  user_name TEXT NOT NULL,
-  issued_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_lingoo_progress_user ON lingoo_progress(user_id);
-CREATE INDEX IF NOT EXISTS idx_lingoo_completions_user ON lingoo_lesson_completions(user_id);
-CREATE INDEX IF NOT EXISTS idx_lingoo_completions_category ON lingoo_lesson_completions(user_id, category_id);
-CREATE INDEX IF NOT EXISTS idx_lingoo_certificates_number ON lingoo_certificates(certificate_number);
-
--- Google OAuth + admin columns (idempotent)
-DO $$
-BEGIN
-  BEGIN ALTER TABLE users ADD COLUMN google_id TEXT UNIQUE; EXCEPTION WHEN duplicate_column THEN NULL; END;
-  BEGIN ALTER TABLE users ADD COLUMN avatar_url TEXT; EXCEPTION WHEN duplicate_column THEN NULL; END;
-  BEGIN ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT false; EXCEPTION WHEN duplicate_column THEN NULL; END;
-END $$;
-ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 
 -- Analytics: page visits
 CREATE TABLE IF NOT EXISTS page_visits (
@@ -66,9 +21,6 @@ CREATE TABLE IF NOT EXISTS page_visits (
   city TEXT,
   visited_at TIMESTAMPTZ DEFAULT NOW()
 );
-
-CREATE INDEX IF NOT EXISTS idx_page_visits_date ON page_visits(visited_at);
-CREATE INDEX IF NOT EXISTS idx_page_visits_country ON page_visits(country_code);
 
 -- Subscriptions
 CREATE TABLE IF NOT EXISTS subscriptions (
@@ -84,5 +36,112 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Quiz categories
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  emoji TEXT NOT NULL,
+  description TEXT,
+  color TEXT DEFAULT '#4F46E5',
+  question_count INTEGER DEFAULT 0
+);
+
+-- Questions
+CREATE TABLE IF NOT EXISTS questions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  category_id TEXT REFERENCES categories(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  options JSONB NOT NULL,
+  correct_index INTEGER NOT NULL,
+  difficulty TEXT DEFAULT 'medium',
+  active BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Quiz sessions
+CREATE TABLE IF NOT EXISTS quiz_sessions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  category_id TEXT,
+  session_type TEXT DEFAULT 'solo',
+  question_ids JSONB,
+  answers JSONB DEFAULT '[]',
+  score INTEGER DEFAULT 0,
+  total_questions INTEGER DEFAULT 10,
+  correct_count INTEGER DEFAULT 0,
+  completed BOOLEAN DEFAULT false,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+-- Daily quiz (same questions for everyone on a given date)
+CREATE TABLE IF NOT EXISTS daily_quizzes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  quiz_date DATE UNIQUE NOT NULL,
+  question_ids JSONB NOT NULL
+);
+
+-- Daily completions (one per user per day)
+CREATE TABLE IF NOT EXISTS daily_completions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  quiz_date DATE NOT NULL,
+  session_id UUID REFERENCES quiz_sessions(id),
+  score INTEGER DEFAULT 0,
+  correct_count INTEGER DEFAULT 0,
+  completed_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(user_id, quiz_date)
+);
+
+-- Challenges / Hunter Mode
+CREATE TABLE IF NOT EXISTS challenges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  challenger_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  challenged_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  category_id TEXT,
+  mode TEXT DEFAULT 'challenge',
+  status TEXT DEFAULT 'pending',
+  challenger_session_id UUID REFERENCES quiz_sessions(id),
+  challenged_session_id UUID REFERENCES quiz_sessions(id),
+  winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  share_code TEXT UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  completed_at TIMESTAMPTZ
+);
+
+-- User stats / leaderboard
+CREATE TABLE IF NOT EXISTS user_stats (
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE PRIMARY KEY,
+  total_quizzes INTEGER DEFAULT 0,
+  total_correct INTEGER DEFAULT 0,
+  total_questions INTEGER DEFAULT 0,
+  best_score INTEGER DEFAULT 0,
+  current_streak INTEGER DEFAULT 0,
+  longest_streak INTEGER DEFAULT 0,
+  last_quiz_date DATE,
+  xp INTEGER DEFAULT 0,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Indexes
+CREATE INDEX IF NOT EXISTS idx_page_visits_date ON page_visits(visited_at);
+CREATE INDEX IF NOT EXISTS idx_page_visits_country ON page_visits(country_code);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON subscriptions(user_id);
 CREATE INDEX IF NOT EXISTS idx_subscriptions_stripe_sub ON subscriptions(stripe_subscription_id);
+CREATE INDEX IF NOT EXISTS idx_questions_category ON questions(category_id);
+CREATE INDEX IF NOT EXISTS idx_questions_difficulty ON questions(difficulty);
+CREATE INDEX IF NOT EXISTS idx_quiz_sessions_user ON quiz_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_quiz_sessions_type ON quiz_sessions(session_type);
+CREATE INDEX IF NOT EXISTS idx_daily_completions_date ON daily_completions(quiz_date);
+CREATE INDEX IF NOT EXISTS idx_challenges_code ON challenges(share_code);
+CREATE INDEX IF NOT EXISTS idx_user_stats_xp ON user_stats(xp DESC);
+
+-- Seed categories (idempotent)
+INSERT INTO categories (id, name, emoji, description, color) VALUES
+  ('geography',   'Geografija',      '🌍', 'Gradovi, rijeke, planine, države', '#2563EB'),
+  ('history',     'Povijest',        '📚', 'Bitke, vladari, civilizacije', '#D97706'),
+  ('sports',      'Sport',           '⚽', 'Nogomet, košarka, tenis i više', '#16A34A'),
+  ('science',     'Priroda i Znanost','🔬', 'Fizika, biologija, kemija, svemirr', '#7C3AED'),
+  ('film_music',  'Film i Glazba',   '🎬', 'Filmovi, glazbenici, nagrade', '#DB2777'),
+  ('pop_culture', 'Pop Kultura',     '🎭', 'Internet, trendovi, poznate ličnosti', '#EA580C')
+ON CONFLICT (id) DO NOTHING;

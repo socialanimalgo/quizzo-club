@@ -9,6 +9,7 @@ interface Stats {
   dailyVisits: { date: string; count: number }[]
   dailyNewUsers: { date: string; count: number }[]
   topCountries: { country: string; code: string; count: number }[]
+  categoryStats: { name: string; emoji: string; sessions: number; accuracy: number }[]
 }
 
 function countryFlag(code: string) {
@@ -112,10 +113,10 @@ export default function Admin() {
       <div className="bg-white border-b border-gray-200 px-6 py-4">
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/lingee-eyes-open.png" alt="" className="h-8" />
+            <span className="text-2xl">🧠</span>
             <div>
               <h1 className="font-bold text-gray-900 text-lg">Admin Dashboard</h1>
-              <p className="text-xs text-gray-400">lingee.app</p>
+              <p className="text-xs text-gray-400">quizzo.club</p>
             </div>
           </div>
           <a href="/" className="text-sm text-indigo-600 hover:underline">← Back to app</a>
@@ -197,6 +198,29 @@ export default function Admin() {
             </div>
           )}
         </div>
+
+        {/* Category stats */}
+        {stats.categoryStats?.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+            <h2 className="font-semibold text-gray-800 mb-4">Quiz Categories</h2>
+            <div className="space-y-3">
+              {stats.categoryStats.map((c, i) => (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-xl w-7 text-center">{c.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-700">{c.name}</span>
+                      <span className="text-sm text-gray-400">{c.sessions} sesija · {c.accuracy}% točno</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full bg-indigo-400 rounded-full" style={{ width: `${c.accuracy}%` }} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

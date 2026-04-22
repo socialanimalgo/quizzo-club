@@ -6,11 +6,12 @@ const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 
 const authRoutes = require('./routes/auth');
-const progressRoutes = require('./routes/progress');
-const certificateRoutes = require('./routes/certificates');
 const adminRoutes = require('./routes/admin');
 const stripeRoutes = require('./routes/stripe');
 const subscriptionRoutes = require('./routes/subscriptions');
+const quizRoutes = require('./routes/quiz');
+const leaderboardRoutes = require('./routes/leaderboard');
+const challengeRoutes = require('./routes/challenges');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -31,11 +32,12 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
-app.use('/api', progressRoutes);
-app.use('/api/certificates', certificateRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/stripe', stripeRoutes);
 app.use('/api/subscription', subscriptionRoutes);
+app.use('/api/quiz', quizRoutes);
+app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/challenges', challengeRoutes);
 
 // ── Geo locale ───────────────────────────────────────────────────
 app.get('/api/locale', (req, res) => {
@@ -43,7 +45,7 @@ app.get('/api/locale', (req, res) => {
     .split(',')[0].trim().replace('::ffff:', '');
 
   if (!ip || ip === '127.0.0.1' || ip === '::1') {
-    return res.json({ countryCode: 'US' });
+    return res.json({ countryCode: 'HR' });
   }
 
   http.get(`http://ip-api.com/json/${ip}?fields=status,countryCode`, r => {
@@ -52,12 +54,12 @@ app.get('/api/locale', (req, res) => {
     r.on('end', () => {
       try {
         const geo = JSON.parse(data);
-        res.json({ countryCode: geo.status === 'success' ? geo.countryCode : 'US' });
+        res.json({ countryCode: geo.status === 'success' ? geo.countryCode : 'HR' });
       } catch {
-        res.json({ countryCode: 'US' });
+        res.json({ countryCode: 'HR' });
       }
     });
-  }).on('error', () => res.json({ countryCode: 'US' }));
+  }).on('error', () => res.json({ countryCode: 'HR' }));
 });
 
 // ── Visit tracking ────────────────────────────────────────────────

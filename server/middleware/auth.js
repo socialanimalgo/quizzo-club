@@ -13,6 +13,7 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
+    req.user = payload;
     req.userId = payload.userId;
     next();
   } catch (err) {
@@ -20,4 +21,24 @@ function authMiddleware(req, res, next) {
   }
 }
 
-module.exports = authMiddleware;
+function optionalAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (authHeader?.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
+      req.user = payload;
+      req.userId = payload.userId;
+    } catch {}
+  }
+  next();
+}
+
+function adminMiddleware(req, res, next) {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!adminEmail || req.user?.email !== adminEmail) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  next();
+}
+
+module.exports = { authMiddleware, optionalAuth, adminMiddleware };

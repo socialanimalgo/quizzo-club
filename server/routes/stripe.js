@@ -1,5 +1,5 @@
 const express = require('express');
-const authMiddleware = require('../middleware/auth');
+const { authMiddleware } = require('../middleware/auth');
 const { sendTrialStartedEmail } = require('../lib/email');
 
 const router = express.Router();
@@ -10,7 +10,7 @@ function getStripe() {
 }
 
 function getBaseUrl() {
-  return process.env.BASE_URL || 'https://lingee.app';
+  return process.env.BASE_URL || 'https://quizzo.club';
 }
 
 // POST /api/stripe/checkout
