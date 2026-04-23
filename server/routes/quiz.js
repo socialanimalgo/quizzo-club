@@ -1,6 +1,35 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware, optionalAuth } = require('../middleware/auth');
+const { maybeNotifyLeaderboard, maybeNotifyStreak } = require('../lib/notifications');
+
+async function getOrCreateDailyQuiz(pool) {
+  const { rows: dRows } = await pool.query(
+    'SELECT * FROM daily_quizzes WHERE quiz_date = CURRENT_DATE'
+  );
+
+  if (dRows.length) return dRows[0];
+
+  const { rows: qRows } = await pool.query(
+    `SELECT id FROM questions WHERE active = true ORDER BY RANDOM() LIMIT 10`
+  );
+  const ids = qRows.map(r => r.id);
+
+  const { rows: inserted } = await pool.query(
+    'INSERT INTO daily_quizzes (quiz_date, question_ids) VALUES (CURRENT_DATE, $1) RETURNING *',
+    [JSON.stringify(ids)]
+  );
+
+  return inserted[0];
+}
+
+async function loadOrderedQuestions(pool, questionIds) {
+  const { rows: questions } = await pool.query(
+    `SELECT id, question, options FROM questions WHERE id = ANY($1::uuid[])`,
+    [questionIds]
+  );
+  return questionIds.map(id => questions.find(q => q.id === id));
+}
 
 // GET /api/quiz/categories
 router.get('/categories', async (req, res) => {
@@ -148,6 +177,13 @@ router.post('/finish', authMiddleware, async (req, res) => {
       [userId, session.correct_count, session.total_questions, session.score, xpEarned]
     );
 
+    const { rows: statRows } = await pool.query(
+      'SELECT current_streak FROM user_stats WHERE user_id = $1',
+      [userId]
+    );
+    await maybeNotifyStreak(pool, userId, statRows[0]?.current_streak || 0);
+    await maybeNotifyLeaderboard(pool, userId);
+
     // If this was a daily quiz session type, record daily completion
     if (session.session_type === 'daily') {
       await pool.query(
@@ -175,28 +211,8 @@ router.get('/daily', optionalAuth, async (req, res) => {
     const pool = req.app.get('pool');
     const userId = req.user?.userId;
 
-    // Get or create daily quiz
-    let daily;
-    const { rows: dRows } = await pool.query(
-      'SELECT * FROM daily_quizzes WHERE quiz_date = CURRENT_DATE'
-    );
+    const daily = await getOrCreateDailyQuiz(pool);
 
-    if (dRows.length) {
-      daily = dRows[0];
-    } else {
-      // Create today's daily quiz — 10 mixed questions
-      const { rows: qRows } = await pool.query(
-        `SELECT id FROM questions WHERE active = true ORDER BY RANDOM() LIMIT 10`
-      );
-      const ids = qRows.map(r => r.id);
-      const { rows: inserted } = await pool.query(
-        'INSERT INTO daily_quizzes (quiz_date, question_ids) VALUES (CURRENT_DATE, $1) RETURNING *',
-        [JSON.stringify(ids)]
-      );
-      daily = inserted[0];
-    }
-
-    // Check if user already completed today
     let completed = null;
     if (userId) {
       const { rows: cRows } = await pool.query(
@@ -206,14 +222,65 @@ router.get('/daily', optionalAuth, async (req, res) => {
       if (cRows.length) completed = cRows[0];
     }
 
-    // Load questions (hide correct_index)
-    const { rows: questions } = await pool.query(
-      `SELECT id, question, options FROM questions WHERE id = ANY($1::uuid[])`,
-      [daily.question_ids]
-    );
-    const ordered = daily.question_ids.map((id) => questions.find(q => q.id === id));
+    const ordered = await loadOrderedQuestions(pool, daily.question_ids);
 
-    res.json({ questions: ordered, already_completed: !!completed, completion: completed });
+    res.json({
+      questions: ordered,
+      already_completed: !!completed,
+      completion: completed,
+      quiz_date: daily.quiz_date,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/daily/start', authMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const userId = req.user.userId;
+    const daily = await getOrCreateDailyQuiz(pool);
+
+    const { rows: completionRows } = await pool.query(
+      'SELECT * FROM daily_completions WHERE user_id = $1 AND quiz_date = CURRENT_DATE',
+      [userId]
+    );
+    if (completionRows.length) {
+      return res.status(409).json({ error: 'Daily quiz already completed', completion: completionRows[0] });
+    }
+
+    const { rows: existingRows } = await pool.query(
+      `SELECT *
+       FROM quiz_sessions
+       WHERE user_id = $1
+         AND session_type = 'daily'
+         AND completed = false
+         AND started_at::date = CURRENT_DATE
+       ORDER BY started_at DESC
+       LIMIT 1`,
+      [userId]
+    );
+
+    let session = existingRows[0];
+    if (!session) {
+      const { rows } = await pool.query(
+        `INSERT INTO quiz_sessions (user_id, category_id, session_type, question_ids, total_questions)
+         VALUES ($1, NULL, 'daily', $2, 10)
+         RETURNING *`,
+        [userId, JSON.stringify(daily.question_ids)]
+      );
+      session = rows[0];
+    }
+
+    const questions = await loadOrderedQuestions(pool, session.question_ids);
+
+    res.json({
+      session_id: session.id,
+      questions,
+      already_completed: false,
+      quiz_date: daily.quiz_date,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Server error' });

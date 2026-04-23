@@ -9,6 +9,9 @@ BEGIN
       AND column_name = 'id'
       AND data_type != 'text'
   ) THEN
+    DROP TABLE IF EXISTS notifications CASCADE;
+    DROP TABLE IF EXISTS friendships CASCADE;
+    DROP TABLE IF EXISTS friend_requests CASCADE;
     DROP TABLE IF EXISTS challenges CASCADE;
     DROP TABLE IF EXISTS daily_completions CASCADE;
     DROP TABLE IF EXISTS quiz_sessions CASCADE;
@@ -132,8 +135,39 @@ CREATE TABLE IF NOT EXISTS challenges (
   challenged_session_id UUID REFERENCES quiz_sessions(id),
   winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
   share_code TEXT UNIQUE,
+  accepted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   completed_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  data JSONB DEFAULT '{}'::jsonb,
+  read_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS friend_requests (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  requester_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  receiver_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  responded_at TIMESTAMPTZ,
+  UNIQUE (requester_id, receiver_id)
+);
+
+CREATE TABLE IF NOT EXISTS friendships (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_one_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  user_two_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_one_id, user_two_id),
+  CHECK (user_one_id <> user_two_id)
 );
 
 -- User stats / leaderboard
@@ -157,6 +191,8 @@ ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS longest_streak INTEGER DEFAULT 0
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS best_score INTEGER DEFAULT 0;
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS last_quiz_date DATE;
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS challenge_wins INTEGER DEFAULT 0;
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS challenge_losses INTEGER DEFAULT 0;
 
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS emoji TEXT NOT NULL DEFAULT '';
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
@@ -175,6 +211,7 @@ ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+ALTER TABLE challenges ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_page_visits_date ON page_visits(visited_at);
@@ -188,6 +225,11 @@ CREATE INDEX IF NOT EXISTS idx_quiz_sessions_type ON quiz_sessions(session_type)
 CREATE INDEX IF NOT EXISTS idx_daily_completions_date ON daily_completions(quiz_date);
 CREATE INDEX IF NOT EXISTS idx_challenges_code ON challenges(share_code);
 CREATE INDEX IF NOT EXISTS idx_user_stats_xp ON user_stats(xp DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unread ON notifications(user_id, read_at);
+CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver ON friend_requests(receiver_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_friendships_user_one ON friendships(user_one_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_friendships_user_two ON friendships(user_two_id, created_at DESC);
 
 -- Seed categories (upsert — also fixes rows missing emoji/description from old schema)
 INSERT INTO categories (id, name, emoji, description, color) VALUES

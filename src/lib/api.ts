@@ -61,7 +61,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ session_id }),
       }),
-    daily: () => apiFetch<{ questions: any[]; already_completed: boolean; completion: any }>('/quiz/daily'),
+    daily: () => apiFetch<{ questions: any[]; already_completed: boolean; completion: any; quiz_date: string }>('/quiz/daily'),
+    startDaily: () =>
+      apiFetch<{ session_id: string; questions: any[]; already_completed: boolean; quiz_date: string }>('/quiz/daily/start', {
+        method: 'POST',
+      }),
     session: (id: string) => apiFetch<{ session: any }>(`/quiz/session/${id}`),
   },
   leaderboard: {
@@ -69,17 +73,45 @@ export const api = {
       apiFetch<{ leaderboard: any[]; my_rank: any }>(`/leaderboard?type=${type}`),
   },
   challenges: {
-    create: (category_id: string, mode: 'challenge' | 'hunter' = 'challenge') =>
+    create: (category_id: string, mode: 'challenge' | 'hunter' = 'challenge', challenged_user_id?: string) =>
       apiFetch<{ challenge_id: string; share_code: string; session_id: string; questions: any[] }>('/challenges/create', {
         method: 'POST',
-        body: JSON.stringify({ category_id, mode }),
+        body: JSON.stringify({ category_id, mode, challenged_user_id }),
       }),
     get: (code: string) => apiFetch<{ challenge: any }>(`/challenges/${code}`),
     accept: (code: string) =>
       apiFetch<{ challenge_id: string; session_id: string; category_id: string; mode: string; questions: any[] }>(`/challenges/${code}/accept`, {
         method: 'POST',
       }),
+    acceptById: (id: string) =>
+      apiFetch<{ challenge_id: string; session_id: string; category_id: string; mode: string; questions: any[] }>(`/challenges/by-id/${id}/accept`, {
+        method: 'POST',
+      }),
+    incoming: () => apiFetch<{ challenges: any[] }>('/challenges/incoming'),
+    history: () => apiFetch<{ history: any[] }>('/challenges/history'),
     complete: (id: string) => apiFetch<any>(`/challenges/${id}/complete`, { method: 'POST' }),
+  },
+  notifications: {
+    list: (filter: 'all' | 'unread' = 'all') =>
+      apiFetch<{ notifications: any[]; counts: { all_count: number; unread_count: number } }>(`/notifications?filter=${filter}`),
+    summary: () => apiFetch<{ unread_count: number }>('/notifications/summary'),
+    markRead: (id: string) => apiFetch<{ notification: any }>(`/notifications/${id}/read`, { method: 'POST' }),
+    markAllRead: () => apiFetch<{ ok: boolean }>('/notifications/mark-all-read', { method: 'POST' }),
+  },
+  users: {
+    search: (q: string) => apiFetch<{ users: any[] }>(`/users/search?q=${encodeURIComponent(q)}`),
+    get: (id: string) => apiFetch<{ user: any }>(`/users/${id}`),
+    friends: () => apiFetch<{ friends: any[]; requests: any[] }>('/users/friends'),
+    sendFriendRequest: (user_id: string) =>
+      apiFetch<{ request: any; accepted?: boolean }>('/users/friends/request', {
+        method: 'POST',
+        body: JSON.stringify({ user_id }),
+      }),
+    respondToFriendRequest: (requestId: string, action: 'accept' | 'decline') =>
+      apiFetch<{ ok: boolean }>(`/users/friends/requests/${requestId}/respond`, {
+        method: 'POST',
+        body: JSON.stringify({ action }),
+      }),
   },
   subscription: {
     get: () => apiFetch<any>('/subscription'),

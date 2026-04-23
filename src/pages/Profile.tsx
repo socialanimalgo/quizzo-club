@@ -2,12 +2,16 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import { useNotificationSummary } from '../hooks/useNotificationSummary'
+import { useFriendsSummary } from '../hooks/useFriendsSummary'
 
 export default function Profile() {
   const navigate = useNavigate()
   const [user, setUser] = useState<any>(null)
   const [myRank, setMyRank] = useState<any>(null)
   const [countryCode, setCountryCode] = useState('HR')
+  const { unread } = useNotificationSummary()
+  const { friendCount, incomingRequests } = useFriendsSummary()
 
   useEffect(() => {
     api.auth.getUser().then(u => {
@@ -36,10 +40,26 @@ export default function Profile() {
     {
       id: 'notifications',
       label: 'Obavijesti',
-      value: 'Uskoro',
+      value: unread > 0 ? `${unread} novih` : 'Sve pročitano',
       icon: 'mail',
       tone: '#fff',
-      href: undefined,
+      href: '/notifications',
+    },
+    {
+      id: 'friends',
+      label: 'Prijatelji',
+      value: `${friendCount} · ${incomingRequests} novih`,
+      icon: 'user',
+      tone: '#fff',
+      href: '/friends',
+    },
+    {
+      id: 'history',
+      label: 'Povijest mečeva',
+      value: 'W/L',
+      icon: 'swords',
+      tone: '#fff',
+      href: '/history',
     },
     {
       id: 'language',

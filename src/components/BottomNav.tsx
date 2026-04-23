@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useNotificationSummary } from '../hooks/useNotificationSummary'
 
 function HomeIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px]"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -23,6 +24,7 @@ const ITEMS = [
 export default function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
+  const { unread } = useNotificationSummary()
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] pointer-events-none">
@@ -67,7 +69,17 @@ export default function BottomNav() {
               const active = location.pathname === it.path
               return (
                 <Link key={it.id} to={it.path} className="flex flex-col items-center gap-0.5 flex-1 py-1">
-                  <div className={active ? '' : 'opacity-40'}><it.Icon /></div>
+                  <div className={`relative ${active ? '' : 'opacity-40'}`}>
+                    <it.Icon />
+                    {it.id === 'profile' && unread > 0 && (
+                      <span
+                        className="absolute -top-1.5 -right-2 min-w-[18px] h-[18px] px-1 rounded-full grid place-items-center font-mono text-[9px] font-bold"
+                        style={{ background: '#ef4444', color: '#fff', border: '1.5px solid var(--line)' }}
+                      >
+                        {Math.min(unread, 9)}
+                      </span>
+                    )}
+                  </div>
                   <span className={`font-mono text-[9px] font-bold uppercase tracking-wider ${active ? '' : 'opacity-40'}`}>{it.label}</span>
                   {active && <div className="h-[3px] w-6 rounded-full mt-0.5" style={{ background: 'var(--accent)' }} />}
                 </Link>

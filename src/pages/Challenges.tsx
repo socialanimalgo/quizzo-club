@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
 
@@ -23,6 +23,7 @@ export default function Challenges() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const joinCode = searchParams.get('code')
+  const opponentId = searchParams.get('opponent')
 
   const [user, setUser] = useState<any>(null)
   const [selectedCat, setSelectedCat] = useState('geography')
@@ -33,10 +34,14 @@ export default function Challenges() {
   const [challengeInfo, setChallengeInfo] = useState<any>(null)
   const [shareCode, setShareCode] = useState('')
   const [copied, setCopied] = useState(false)
+  const [opponent, setOpponent] = useState<any>(null)
+  const [friends, setFriends] = useState<any[]>([])
 
   useEffect(() => {
     api.auth.getUser().then(setUser)
+    api.users.friends().then(r => setFriends(r.friends)).catch(() => {})
     if (joinCode) lookupChallenge(joinCode)
+    if (opponentId) api.users.get(opponentId).then(r => setOpponent(r.user)).catch(() => setOpponent(null))
   }, [])
 
   async function lookupChallenge(code: string) {
@@ -47,9 +52,9 @@ export default function Challenges() {
     if (!user) { navigate('/signin'); return }
     setCreating(true)
     try {
-      const data = await api.challenges.create(selectedCat, mode)
+      const data = await api.challenges.create(selectedCat, mode, opponent?.id)
       setShareCode(data.share_code)
-      navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id } } })
+      navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id, category_id: selectedCat }, categoryLabel: CATEGORIES.find(cat => cat.id === selectedCat)?.name?.toUpperCase(), returnTo: '/challenges' } })
     } catch (err: any) { alert(err.message || 'Greška'); setCreating(false) }
   }
 
@@ -60,7 +65,7 @@ export default function Challenges() {
     setJoining(true)
     try {
       const data = await api.challenges.accept(code)
-      navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id } } })
+      navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id, category_id: data.category_id }, categoryLabel: CATEGORIES.find(cat => cat.id === data.category_id)?.name?.toUpperCase(), returnTo: '/challenges' } })
     } catch (err: any) { alert(err.message || 'Izazov nije pronađen'); setJoining(false) }
   }
 
@@ -79,6 +84,47 @@ export default function Challenges() {
       </header>
 
       <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto px-4 py-4 space-y-3 w-full app-scroll-with-nav">
+        {opponent && (
+          <div className="btl sh-3 p-3 flex items-center gap-3" style={{ background: 'var(--accent-soft)' }}>
+            <div className="btl btl-sm w-10 h-10 grid place-items-center text-[20px] font-bold" style={{ background: '#fff', borderWidth: 2 }}>
+              {opponent.first_name?.[0]?.toUpperCase() || '?'}
+            </div>
+            <div className="flex-1">
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60">Izazov prema</div>
+              <div className="font-display text-[15px]">{opponent.first_name} {opponent.last_name}</div>
+            </div>
+            <Link to="/challenges" className="btl btl-sm w-8 h-8 grid place-items-center" style={{ background: '#fff', borderWidth: 2 }}>
+              <Icon name="x" className="w-4 h-4" stroke={2.2} />
+            </Link>
+          </div>
+        )}
+
+        {friends.length > 0 && (
+          <div className="btl sh-4 p-4" style={{ background: '#fff' }}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="font-display text-[15px]">Izazovi prijatelja</div>
+              <Link to="/friends" className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60">Vidi sve</Link>
+            </div>
+            <div className="flex flex-col gap-2">
+              {friends.slice(0, 4).map(friend => (
+                <div key={friend.id} className="flex items-center gap-3">
+                  <div className="btl btl-sm w-10 h-10 grid place-items-center text-[18px] font-bold" style={{ background: 'var(--paper-deep)', borderWidth: 2 }}>
+                    {friend.first_name?.[0]?.toUpperCase() || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-display text-[13.5px] truncate">{friend.first_name} {friend.last_name}</div>
+                    <div className="font-mono text-[9.5px] opacity-60 truncate">{friend.email}</div>
+                  </div>
+                  <Link to={`/challenges?opponent=${friend.id}`} className="btl btl-sm px-2.5 py-1.5 flex items-center gap-1" style={{ background: 'var(--accent)', boxShadow: '2px 2px 0 0 var(--line)', borderWidth: 2 }}>
+                    <Icon name="swords" className="w-3.5 h-3.5" stroke={2.2} />
+                    <span className="font-mono text-[9.5px] font-bold uppercase tracking-widest">VS</span>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Accept */}
         <div className="btl sh-4 p-4" style={{ background: '#fff' }}>
           <div className="flex items-center gap-2 mb-2">
@@ -156,7 +202,7 @@ export default function Challenges() {
           </div>
 
           <button onClick={handleCreate} disabled={creating} className="btn btn-primary w-full">
-            {creating ? '…' : `Stvori ${MODES[mode].label}`}
+            {creating ? '…' : opponent ? 'Pokreni izazov' : `Stvori ${MODES[mode].label}`}
           </button>
 
           {shareCode && (

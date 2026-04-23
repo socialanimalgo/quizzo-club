@@ -11,6 +11,9 @@ import Leaderboard from './pages/Leaderboard'
 import Challenges from './pages/Challenges'
 import DailyQuiz from './pages/DailyQuiz'
 import Profile from './pages/Profile'
+import Friends from './pages/Friends'
+import History from './pages/History'
+import Notifications from './pages/Notifications'
 import { api } from './lib/api'
 import LoadingScreen from './components/LoadingScreen'
 import PageTransition from './components/PageTransition'
@@ -58,7 +61,7 @@ export default function App() {
     }
   }, [location.pathname])
 
-  const showBottomNav = hasUser && ['/', '/leaderboard', '/challenges', '/profile'].includes(location.pathname)
+  const showBottomNav = hasUser && ['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily'].includes(location.pathname)
 
   return (
     <div className="min-h-screen overflow-hidden">
@@ -76,6 +79,9 @@ export default function App() {
           <Route path="/admin" element={<Admin />} />
           <Route path="/subscribe" element={<Subscribe />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/friends" element={<Friends />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/notifications" element={<Notifications />} />
         </Routes>
       </div>
       {showBottomNav && <BottomNav />}
