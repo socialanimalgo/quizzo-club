@@ -128,6 +128,14 @@ CREATE TABLE IF NOT EXISTS user_stats (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Migrations: add missing columns if tables existed from old schema
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS xp INTEGER DEFAULT 0;
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS current_streak INTEGER DEFAULT 0;
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS longest_streak INTEGER DEFAULT 0;
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS best_score INTEGER DEFAULT 0;
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS last_quiz_date DATE;
+ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_page_visits_date ON page_visits(visited_at);
 CREATE INDEX IF NOT EXISTS idx_page_visits_country ON page_visits(country_code);
