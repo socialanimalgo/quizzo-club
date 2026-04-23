@@ -136,6 +136,24 @@ ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS best_score INTEGER DEFAULT 0;
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS last_quiz_date DATE;
 ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW();
 
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS emoji TEXT NOT NULL DEFAULT '';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#4F46E5';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS question_count INTEGER DEFAULT 0;
+
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS difficulty TEXT DEFAULT 'medium';
+ALTER TABLE questions ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
+
+ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS session_type TEXT DEFAULT 'solo';
+ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS question_ids JSONB;
+ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS answers JSONB DEFAULT '[]';
+ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS correct_count INTEGER DEFAULT 0;
+ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_page_visits_date ON page_visits(visited_at);
 CREATE INDEX IF NOT EXISTS idx_page_visits_country ON page_visits(country_code);
@@ -149,7 +167,7 @@ CREATE INDEX IF NOT EXISTS idx_daily_completions_date ON daily_completions(quiz_
 CREATE INDEX IF NOT EXISTS idx_challenges_code ON challenges(share_code);
 CREATE INDEX IF NOT EXISTS idx_user_stats_xp ON user_stats(xp DESC);
 
--- Seed categories (idempotent)
+-- Seed categories (upsert — also fixes rows missing emoji/description from old schema)
 INSERT INTO categories (id, name, emoji, description, color) VALUES
   ('geography',   'Geografija',      '🌍', 'Gradovi, rijeke, planine, države', '#2563EB'),
   ('history',     'Povijest',        '📚', 'Bitke, vladari, civilizacije', '#D97706'),
@@ -157,4 +175,8 @@ INSERT INTO categories (id, name, emoji, description, color) VALUES
   ('science',     'Priroda i Znanost','🔬', 'Fizika, biologija, kemija, svemirr', '#7C3AED'),
   ('film_music',  'Film i Glazba',   '🎬', 'Filmovi, glazbenici, nagrade', '#DB2777'),
   ('pop_culture', 'Pop Kultura',     '🎭', 'Internet, trendovi, poznate ličnosti', '#EA580C')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  emoji = EXCLUDED.emoji,
+  description = EXCLUDED.description,
+  color = EXCLUDED.color;
