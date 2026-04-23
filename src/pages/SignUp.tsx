@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api, setToken } from '../lib/api'
+import QuizzoLogo from '../components/QuizzoLogo'
 
 export default function SignUp() {
   const navigate = useNavigate()
@@ -33,7 +34,7 @@ export default function SignUp() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <Link to="/" className="btl btl-sm sh-2 w-9 h-9 grid place-items-center" style={{ background: '#fff' }}>←</Link>
-          <img src="/quizzo-icon.jpg" alt="Quizzo" className="w-10 h-10 btl btl-sm sh-2" style={{ objectFit: 'cover' }} />
+          <QuizzoLogo size={40} />
           <div className="w-9" />
         </div>
 

@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Routes, Route } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Home from './pages/Home'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
@@ -12,26 +12,54 @@ import Challenges from './pages/Challenges'
 import DailyQuiz from './pages/DailyQuiz'
 import Profile from './pages/Profile'
 import { api } from './lib/api'
+import LoadingScreen from './components/LoadingScreen'
+import PageTransition from './components/PageTransition'
 
 export default function App() {
+  const location = useLocation()
+  const previousPath = useRef(location.pathname)
+  const [booting, setBooting] = useState(false)
+  const [transitioning, setTransitioning] = useState(false)
+
   useEffect(() => {
     api.analytics.visit()
   }, [])
 
+  useEffect(() => {
+    if (sessionStorage.getItem('quizzo.booted')) return
+
+    sessionStorage.setItem('quizzo.booted', '1')
+    setBooting(true)
+    const timer = window.setTimeout(() => setBooting(false), 1800)
+    return () => clearTimeout(timer)
+  }, [])
+
+  useEffect(() => {
+    if (location.pathname === previousPath.current) return
+    previousPath.current = location.pathname
+    setTransitioning(true)
+  }, [location.pathname])
+
   return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/quiz/:categoryId" element={<QuizPlay />} />
-      <Route path="/quiz/play" element={<QuizPlay />} />
-      <Route path="/results" element={<QuizResults />} />
-      <Route path="/leaderboard" element={<Leaderboard />} />
-      <Route path="/challenges" element={<Challenges />} />
-      <Route path="/daily" element={<DailyQuiz />} />
-      <Route path="/signin" element={<SignIn />} />
-      <Route path="/signup" element={<SignUp />} />
-      <Route path="/admin" element={<Admin />} />
-      <Route path="/subscribe" element={<Subscribe />} />
-      <Route path="/profile" element={<Profile />} />
-    </Routes>
+    <div className="min-h-screen overflow-hidden">
+      <div key={location.pathname} className="min-h-screen anim-screenIn">
+        <Routes location={location}>
+          <Route path="/" element={<Home />} />
+          <Route path="/quiz/:categoryId" element={<QuizPlay />} />
+          <Route path="/quiz/play" element={<QuizPlay />} />
+          <Route path="/results" element={<QuizResults />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/challenges" element={<Challenges />} />
+          <Route path="/daily" element={<DailyQuiz />} />
+          <Route path="/signin" element={<SignIn />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/subscribe" element={<Subscribe />} />
+          <Route path="/profile" element={<Profile />} />
+        </Routes>
+      </div>
+      <PageTransition show={transitioning} onDone={() => setTransitioning(false)} />
+      {booting && <LoadingScreen full />}
+    </div>
   )
 }

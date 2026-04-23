@@ -96,6 +96,25 @@ body {
 .anim-bump { animation: scoreBump 0.45s ease-out; }
 .anim-gridShift { animation: gridShift 3s linear infinite; }
 
+@keyframes routeWipeTop {
+  from { transform: translateY(-100%); }
+  50% { transform: translateY(0); }
+  to { transform: translateY(-100%); }
+}
+
+@keyframes routeWipeBottom {
+  from { transform: translateY(100%); }
+  50% { transform: translateY(0); }
+  to { transform: translateY(100%); }
+}
+
+.route-wipe-top { animation: routeWipeTop 0.35s cubic-bezier(.65,.05,.36,1) both; }
+.route-wipe-bottom { animation: routeWipeBottom 0.35s cubic-bezier(.65,.05,.36,1) both; }
+
+.app-scroll-with-nav {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom));
+}
+
 /* Form inputs */
 .inp {
   width: 100%;

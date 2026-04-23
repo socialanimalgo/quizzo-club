@@ -25,36 +25,56 @@ export default function BottomNav() {
   const navigate = useNavigate()
 
   return (
-    <nav className="shrink-0 px-2 pt-2 pb-5 relative" style={{ background: 'var(--paper)', borderTop: '2.5px solid var(--line)' }}>
-      <div className="flex items-end justify-between">
-        {ITEMS.slice(0, 2).map(it => {
-          const active = location.pathname === it.path
-          return (
-            <Link key={it.id} to={it.path} className="flex flex-col items-center gap-0.5 flex-1 py-1">
-              <div className={active ? '' : 'opacity-40'}><it.Icon /></div>
-              <span className={`font-mono text-[9px] font-bold uppercase tracking-wider ${active ? '' : 'opacity-40'}`}>{it.label}</span>
-              {active && <div className="h-[3px] w-6 rounded-full mt-0.5" style={{ background: 'var(--accent)' }} />}
-            </Link>
-          )
-        })}
+    <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] pointer-events-none">
+      <div className="max-w-xl mx-auto pointer-events-auto">
+        <div
+          className="relative px-2 pt-2 pb-3"
+          style={{
+            background: 'var(--paper)',
+            border: '2.5px solid var(--line)',
+            borderRadius: 28,
+            boxShadow: '6px 6px 0 0 var(--line), 10px 10px 0 0 color-mix(in oklch, var(--accent) 70%, transparent)',
+          }}
+        >
+          <div className="flex items-end justify-between">
+            {ITEMS.slice(0, 2).map(it => {
+              const active = location.pathname === it.path
+              return (
+                <Link key={it.id} to={it.path} className="flex flex-col items-center gap-0.5 flex-1 py-1">
+                  <div className={active ? '' : 'opacity-40'}><it.Icon /></div>
+                  <span className={`font-mono text-[9px] font-bold uppercase tracking-wider ${active ? '' : 'opacity-40'}`}>{it.label}</span>
+                  {active && <div className="h-[3px] w-6 rounded-full mt-0.5" style={{ background: 'var(--accent)' }} />}
+                </Link>
+              )
+            })}
 
-        {/* Central play button */}
-        <button onClick={() => navigate('/daily')}
-          className="relative -mt-6 w-14 h-14 btl flex items-center justify-center"
-          style={{ background: 'var(--ink)', color: '#fff', borderRadius: 999, borderWidth: 3, boxShadow: '4px 4px 0 0 var(--accent)', flexShrink: 0 }}>
-          <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 ml-0.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        </button>
+            <button
+              onClick={() => navigate('/daily')}
+              className="relative -mt-6 w-14 h-14 btl flex items-center justify-center anim-pulseRing"
+              style={{
+                background: 'var(--ink)',
+                color: '#fff',
+                borderRadius: 999,
+                borderWidth: 3,
+                boxShadow: '4px 4px 0 0 var(--accent)',
+                flexShrink: 0,
+              }}
+            >
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 ml-0.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+            </button>
 
-        {ITEMS.slice(2).map(it => {
-          const active = location.pathname === it.path
-          return (
-            <Link key={it.id} to={it.path} className="flex flex-col items-center gap-0.5 flex-1 py-1">
-              <div className={active ? '' : 'opacity-40'}><it.Icon /></div>
-              <span className={`font-mono text-[9px] font-bold uppercase tracking-wider ${active ? '' : 'opacity-40'}`}>{it.label}</span>
-              {active && <div className="h-[3px] w-6 rounded-full mt-0.5" style={{ background: 'var(--accent)' }} />}
-            </Link>
-          )
-        })}
+            {ITEMS.slice(2).map(it => {
+              const active = location.pathname === it.path
+              return (
+                <Link key={it.id} to={it.path} className="flex flex-col items-center gap-0.5 flex-1 py-1">
+                  <div className={active ? '' : 'opacity-40'}><it.Icon /></div>
+                  <span className={`font-mono text-[9px] font-bold uppercase tracking-wider ${active ? '' : 'opacity-40'}`}>{it.label}</span>
+                  {active && <div className="h-[3px] w-6 rounded-full mt-0.5" style={{ background: 'var(--accent)' }} />}
+                </Link>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </nav>
   )

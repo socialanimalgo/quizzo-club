@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import BottomNav from '../components/BottomNav'
 
@@ -37,14 +37,14 @@ export default function Leaderboard() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--paper)' }}>
+    <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
       <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
         <div className="max-w-xl mx-auto flex items-center gap-3">
           <h1 className="font-display text-[22px]">🏆 Ljestvica</h1>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto px-4 py-4 w-full">
+      <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto px-4 py-4 w-full app-scroll-with-nav">
         {/* Tabs */}
         <div className="btl sh-3 p-1 flex gap-1 mb-4" style={{ background: '#fff' }}>
           {TABS.map(t => (

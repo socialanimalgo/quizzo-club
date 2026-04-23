@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import BottomNav from '../components/BottomNav'
+import QuizzoLogo from '../components/QuizzoLogo'
 
 const CATEGORIES = [
   { id: 'geography',   emoji: '🌍', name: 'Geografija',      hue: 220, count: 72 },
@@ -44,21 +45,7 @@ export default function Home() {
     return () => clearInterval(i)
   }, [])
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: 'var(--paper)' }}>
-        <div className="absolute inset-0 grid-dots opacity-60" />
-        <div className="relative text-center">
-          <img src="/quizzo-icon.jpg" alt="Quizzo" className="w-20 h-20 btl sh-4 mx-auto mb-4" style={{ objectFit: 'cover' }} />
-          <div className="font-display text-[28px] tracking-tight leading-none mb-1">
-            Quizzo<span style={{ color: 'var(--accent-deep)' }}>.</span>
-          </div>
-          <div className="font-mono text-[10px] font-bold uppercase tracking-[0.3em] opacity-60 mb-6">CLUB</div>
-          <div className="font-mono text-[11px] font-bold uppercase tracking-widest opacity-50">UČITAVANJE...</div>
-        </div>
-      </div>
-    )
-  }
+  if (loading) return null
 
   // ── WELCOME SCREEN (logged out) ─────────────────────────────────
   if (!user) {
@@ -69,7 +56,7 @@ export default function Home() {
           <div className="absolute inset-0 grid-dots opacity-[0.15]" />
           <div className="relative flex items-center justify-between mb-8">
             <div className="flex items-center gap-2">
-              <img src="/quizzo-icon.jpg" alt="Quizzo" className="h-9 w-9 btl btl-sm" style={{ objectFit: 'cover', borderColor: 'rgba(255,255,255,0.3)' }} />
+              <QuizzoLogo size={36} />
               <div>
                 <div className="font-display text-[17px] leading-none">Quizzo<span style={{ color: 'var(--accent)' }}>.</span></div>
                 <div className="font-mono text-[8.5px] opacity-60 uppercase tracking-[0.25em] mt-0.5">CLUB</div>
@@ -146,12 +133,12 @@ export default function Home() {
   const rank = myRank?.rank ?? '–'
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: 'var(--paper)' }}>
+    <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
       {/* TopBar */}
       <header className="px-4 pt-4 pb-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src="/quizzo-icon.jpg" alt="Quizzo" className="h-8 w-8 btl btl-sm sh-2" style={{ objectFit: 'cover' }} />
+            <QuizzoLogo size={34} />
             <div className="leading-tight">
               <div className="font-display text-[18px] font-bold leading-none">Quizzo<span style={{ color: 'var(--accent-deep)' }}>.</span></div>
               <div className="font-mono text-[9px] font-bold opacity-50 uppercase tracking-[0.2em] mt-0.5">CLUB · v1</div>
@@ -193,7 +180,7 @@ export default function Home() {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className="flex-1 overflow-y-auto no-scrollbar app-scroll-with-nav">
         {/* Greeting + XP */}
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-baseline justify-between mb-1">
