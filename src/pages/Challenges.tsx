@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
-import BottomNav from '../components/BottomNav'
 
 type Mode = 'challenge' | 'hunter'
 
@@ -186,7 +185,6 @@ export default function Challenges() {
           ))}
         </div>
       </div>
-      <BottomNav />
     </div>
   )
 }

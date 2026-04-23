@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
-import BottomNav from '../components/BottomNav'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -90,8 +89,6 @@ export default function Profile() {
           // QUIZZO CLUB v1.0 · 2026
         </div>
       </div>
-
-      <BottomNav />
     </div>
   )
 }

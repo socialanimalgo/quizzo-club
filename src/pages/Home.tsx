@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
-import BottomNav from '../components/BottomNav'
 import QuizzoLogo from '../components/QuizzoLogo'
 
 const CATEGORIES = [
@@ -272,8 +271,6 @@ export default function Home() {
           </Link>
         </div>
       </div>
-
-      <BottomNav />
     </div>
   )
 }

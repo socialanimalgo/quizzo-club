@@ -14,12 +14,14 @@ import Profile from './pages/Profile'
 import { api } from './lib/api'
 import LoadingScreen from './components/LoadingScreen'
 import PageTransition from './components/PageTransition'
+import BottomNav from './components/BottomNav'
 
 export default function App() {
   const location = useLocation()
   const previousPath = useRef(location.pathname)
   const [booting, setBooting] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
+  const [hasUser, setHasUser] = useState(false)
 
   useEffect(() => {
     api.analytics.visit()
@@ -40,6 +42,24 @@ export default function App() {
     setTransitioning(true)
   }, [location.pathname])
 
+  useEffect(() => {
+    let cancelled = false
+
+    api.auth.getUser()
+      .then(user => {
+        if (!cancelled) setHasUser(Boolean(user))
+      })
+      .catch(() => {
+        if (!cancelled) setHasUser(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [location.pathname])
+
+  const showBottomNav = hasUser && ['/', '/leaderboard', '/challenges', '/profile'].includes(location.pathname)
+
   return (
     <div className="min-h-screen overflow-hidden">
       <div key={location.pathname} className="min-h-screen anim-screenIn">
@@ -58,6 +78,7 @@ export default function App() {
           <Route path="/profile" element={<Profile />} />
         </Routes>
       </div>
+      {showBottomNav && <BottomNav />}
       <PageTransition show={transitioning} onDone={() => setTransitioning(false)} />
       {booting && <LoadingScreen full />}
     </div>
