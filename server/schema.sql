@@ -92,6 +92,11 @@ CREATE TABLE IF NOT EXISTS daily_completions (
   completed_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, quiz_date)
 );
+-- Migrations: add missing columns if table existed from old schema
+ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS quiz_date DATE;
+ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES quiz_sessions(id);
+ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS score INTEGER DEFAULT 0;
+ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS correct_count INTEGER DEFAULT 0;
 
 -- Challenges / Hunter Mode
 CREATE TABLE IF NOT EXISTS challenges (
