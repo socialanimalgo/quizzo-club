@@ -2,207 +2,183 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 
-const categoryColors: Record<string, string> = {
-  geography:   'from-blue-500 to-blue-700',
-  history:     'from-amber-500 to-amber-700',
-  sports:      'from-green-500 to-green-700',
-  science:     'from-purple-500 to-purple-700',
-  film_music:  'from-pink-500 to-pink-700',
-  pop_culture: 'from-orange-500 to-orange-700',
-}
-
-const categoryBg: Record<string, string> = {
-  geography:   'bg-blue-500/10 hover:bg-blue-500/20',
-  history:     'bg-amber-500/10 hover:bg-amber-500/20',
-  sports:      'bg-green-500/10 hover:bg-green-500/20',
-  science:     'bg-purple-500/10 hover:bg-purple-500/20',
-  film_music:  'bg-pink-500/10 hover:bg-pink-500/20',
-  pop_culture: 'bg-orange-500/10 hover:bg-orange-500/20',
-}
+const CATEGORIES = [
+  { id: 'geography',   emoji: '🌍', name: 'Geografija',       hue: 220, count: 72 },
+  { id: 'history',     emoji: '📚', name: 'Povijest',         hue: 35,  count: 68 },
+  { id: 'sports',      emoji: '⚽', name: 'Sport',            hue: 150, count: 64 },
+  { id: 'science',     emoji: '🔬', name: 'Priroda i Znan.',  hue: 280, count: 70 },
+  { id: 'film_music',  emoji: '🎬', name: 'Film i Glazba',    hue: 345, count: 66 },
+  { id: 'pop_culture', emoji: '🎭', name: 'Pop Kultura',      hue: 25,  count: 60 },
+]
 
 export default function Home() {
   const navigate = useNavigate()
   const [user, setUser] = useState<any>(null)
-  const [categories, setCategories] = useState<any[]>([])
-  const [stats, setStats] = useState<any>(null)
   const [dailyDone, setDailyDone] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [questionCounts, setQuestionCounts] = useState<Record<string, number>>({})
 
   useEffect(() => {
-    Promise.all([
-      api.auth.getUser(),
-      api.quiz.categories(),
-    ]).then(([u, cats]) => {
+    api.auth.getUser().then(u => {
       setUser(u)
-      setCategories(cats.categories)
-      if (u) {
-        // Load user stats + daily status
-        api.quiz.daily().then(d => setDailyDone(d.already_completed)).catch(() => {})
-      }
-      setLoading(false)
-    }).catch(() => setLoading(false))
+      if (u) api.quiz.daily().then(d => setDailyDone(d.already_completed)).catch(() => {})
+    })
+    api.quiz.categories().then(r => {
+      const counts: Record<string, number> = {}
+      r.categories.forEach((c: any) => { counts[c.id] = c.question_count || 60 })
+      setQuestionCounts(counts)
+    }).catch(() => {})
   }, [])
 
-  function startQuiz(categoryId: string) {
-    navigate(`/quiz/${categoryId}`)
-  }
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-slate-900">
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
       {/* Header */}
-      <header className="sticky top-0 z-20 bg-gray-950/80 backdrop-blur-md border-b border-white/10">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-2xl">🧠</span>
-            <span className="font-black text-white text-xl tracking-tight">Quizzo Club</span>
-          </div>
-          <div className="flex items-center gap-2">
+      <header className="px-4 pt-4 pb-3 border-b-[2.5px]" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/quizzo-icon.jpg" alt="Quizzo" className="h-9 w-9 rounded-lg btl btl-sm sh-2" style={{ objectFit: 'cover' }} />
+            <div className="leading-tight">
+              <div className="font-display text-lg leading-none">Quizzo<span style={{ color: 'var(--accent-deep)' }}>.</span></div>
+              <div className="font-mono text-[9px] font-bold opacity-50 uppercase tracking-[0.2em] mt-0.5">CLUB</div>
+            </div>
+          </Link>
+          <nav className="flex items-center gap-2">
+            <Link to="/leaderboard" className="btl btl-sm sh-2 px-3 py-1.5 text-xs font-bold font-mono uppercase tracking-wider hover:-translate-y-0.5 transition-transform" style={{ background: '#fff' }}>
+              🏆 Lista
+            </Link>
+            <Link to="/challenges" className="btl btl-sm sh-2 px-3 py-1.5 text-xs font-bold font-mono uppercase tracking-wider hover:-translate-y-0.5 transition-transform" style={{ background: '#fff' }}>
+              ⚔️ Vs
+            </Link>
             {user ? (
-              <>
-                <Link
-                  to="/leaderboard"
-                  className="text-white/60 hover:text-white text-sm px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  🏆 Top lista
-                </Link>
-                <Link
-                  to="/challenges"
-                  className="text-white/60 hover:text-white text-sm px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  ⚔️ Izazovi
-                </Link>
-                <button
-                  onClick={() => { api.auth.logout(); window.location.reload() }}
-                  className="text-white/40 hover:text-white/70 text-sm px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors"
-                >
-                  {user.first_name}
-                </button>
-              </>
+              <button
+                onClick={() => { api.auth.logout(); window.location.reload() }}
+                className="btl btl-sm sh-2 px-3 py-1.5 flex items-center gap-2 text-sm font-bold font-display hover:-translate-y-0.5 transition-transform"
+                style={{ background: '#fff' }}
+              >
+                <span className="w-6 h-6 rounded-full grid place-items-center text-xs font-bold btl btl-sm" style={{ background: 'var(--accent)' }}>
+                  {user.first_name?.[0]?.toUpperCase()}
+                </span>
+                {user.first_name}
+              </button>
             ) : (
-              <>
-                <Link to="/signin" className="text-white/60 hover:text-white text-sm px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
-                  Prijava
-                </Link>
-                <Link to="/signup" className="bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold px-4 py-1.5 rounded-xl transition-colors">
-                  Registracija
-                </Link>
-              </>
+              <div className="flex items-center gap-2">
+                <Link to="/signin" className="btn btn-sm">Prijava</Link>
+                <Link to="/signup" className="btn btn-primary btn-sm">Registracija</Link>
+              </div>
             )}
-          </div>
+          </nav>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+      <main className="max-w-4xl mx-auto px-4 py-6">
         {/* Hero */}
-        <section className="text-center mb-10">
-          <h1 className="text-4xl sm:text-5xl font-black text-white mb-3 leading-tight">
-            Dokaži svoje<br className="sm:hidden" /> opće znanje
-          </h1>
-          <p className="text-gray-400 text-base sm:text-lg max-w-xl mx-auto">
-            Kviz pitanja iz geografije, sporta, povijesti, znanosti, filma i pop kulture.
-          </p>
-        </section>
-
-        {/* Daily quiz banner */}
-        <section
-          onClick={() => navigate('/daily')}
-          className={`mb-8 rounded-3xl p-5 sm:p-6 cursor-pointer transition-all border ${
-            dailyDone
-              ? 'bg-green-900/30 border-green-500/30 opacity-75'
-              : 'bg-gradient-to-r from-indigo-600 to-purple-600 border-transparent hover:from-indigo-500 hover:to-purple-500 shadow-xl shadow-indigo-900/40'
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-2xl">📅</span>
-                <span className="text-white font-bold text-lg">Dnevni kviz</span>
-                {dailyDone && (
-                  <span className="text-green-300 bg-green-900/50 text-xs px-2 py-0.5 rounded-full font-semibold">✓ Riješen</span>
-                )}
+        <section className="mb-6">
+          <button
+            onClick={() => navigate('/daily')}
+            className="btl btl-lg sh-6 w-full text-left p-5 relative overflow-hidden anim-pop"
+            style={{ background: 'var(--accent)' }}
+          >
+            <div className="absolute inset-0 grid-dots opacity-20" />
+            <div className="relative">
+              <div className="flex items-start justify-between mb-2">
+                <span className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>⟶ DNEVNI</span>
+                <div className="font-mono text-[10px] font-bold opacity-70 tabular">Q#{String(new Date().getDate()).padStart(3, '0')}</div>
               </div>
-              <p className="text-white/70 text-sm">
-                {dailyDone ? 'Već si riješio/la dnevni kviz. Vidi rezultate!' : '10 pitanja · Miješane kategorije · Jednom dnevno'}
-              </p>
+              <div className="font-display text-[36px] sm:text-[40px] leading-[0.9] tracking-tight whitespace-pre-line mt-2">
+                Dokaži svoje{'\n'}opće znanje
+              </div>
+              <div className="flex items-center gap-3 mt-4 flex-wrap">
+                <div className="btn btn-primary btn-sm" style={{ background: 'var(--ink)', color: '#fff', boxShadow: '3px 3px 0 0 var(--line)' }}>
+                  {dailyDone ? '✓ Riješeno' : '▶ Spreman'}
+                </div>
+                <div className="font-mono text-[11px] font-bold">+200 XP · 10 Q</div>
+              </div>
             </div>
-            <div className={`text-3xl transition-transform ${dailyDone ? '' : 'group-hover:scale-110'}`}>
-              {dailyDone ? '✅' : '▶️'}
-            </div>
-          </div>
+          </button>
         </section>
 
         {/* Categories */}
-        <section>
-          <h2 className="text-white font-bold text-xl mb-4">Odaberi kategoriju</h2>
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-              {[...Array(6)].map((_, i) => (
-                <div key={i} className="h-32 rounded-2xl bg-white/5 animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-4">
-              {categories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => startQuiz(cat.id)}
-                  className={`relative flex flex-col items-center justify-center gap-2 p-4 sm:p-6 rounded-2xl border border-white/10 transition-all duration-200 hover:scale-[1.02] hover:border-white/20 active:scale-[0.98] ${categoryBg[cat.id] || 'bg-white/5 hover:bg-white/10'}`}
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-mono text-[12px] font-bold uppercase tracking-widest">Odaberi kategoriju</h2>
+            <span className="font-mono text-[10px] font-bold opacity-60">06 CAT.</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {CATEGORIES.map((cat, i) => (
+              <button
+                key={cat.id}
+                onClick={() => navigate(`/quiz/${cat.id}`)}
+                className="btl sh-4 flex items-center gap-3 p-3 text-left anim-slideup hover:-translate-y-0.5 transition-transform"
+                style={{
+                  animationDelay: `${i * 0.04}s`,
+                  background: '#fff'
+                }}
+              >
+                <span
+                  className="shrink-0 w-12 h-12 btl btl-sm grid place-items-center text-2xl"
+                  style={{
+                    background: `oklch(0.9 0.1 ${cat.hue})`,
+                    boxShadow: '2px 2px 0 0 var(--line)'
+                  }}
                 >
-                  <span className="text-4xl sm:text-5xl">{cat.emoji}</span>
-                  <span className="text-white font-bold text-sm sm:text-base text-center leading-tight">{cat.name}</span>
-                  <span className="text-white/40 text-xs">{cat.question_count || 60}+ pitanja</span>
-                </button>
-              ))}
-            </div>
-          )}
+                  {cat.emoji}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <div className="font-display text-[17px] leading-tight truncate">{cat.name}</div>
+                  <div className="font-mono text-[10px] font-bold opacity-60 tabular uppercase tracking-wider">
+                    {String(questionCounts[cat.id] || cat.count).padStart(3, '0')} PITANJA
+                  </div>
+                </div>
+                <div className="shrink-0 w-10 h-10 btl btl-sm grid place-items-center" style={{ background: 'var(--ink)', color: '#fff', boxShadow: '2px 2px 0 0 var(--accent)' }}>
+                  ▶
+                </div>
+              </button>
+            ))}
+          </div>
         </section>
 
-        {/* Quick actions */}
-        <section className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Link
-            to="/leaderboard"
-            className="flex items-center gap-4 p-4 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 hover:bg-yellow-500/20 transition-colors"
-          >
-            <span className="text-3xl">🏆</span>
-            <div>
-              <div className="text-white font-semibold">Top lista</div>
-              <div className="text-white/50 text-sm">Vidi tko je najbolji</div>
-            </div>
-            <span className="ml-auto text-white/30">→</span>
-          </Link>
+        {/* Quick links */}
+        <section className="grid sm:grid-cols-2 gap-3 mb-6">
           <Link
             to="/challenges"
-            className="flex items-center gap-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+            className="btl sh-4 p-3 text-left hover:-translate-y-0.5 transition-transform"
+            style={{ background: '#fff' }}
           >
-            <span className="text-3xl">⚔️</span>
-            <div>
-              <div className="text-white font-semibold">Izazovi i Hunter Mode</div>
-              <div className="text-white/50 text-sm">Izazovi prijatelje</div>
+            <div className="w-10 h-10 btl btl-sm grid place-items-center mb-2 text-xl" style={{ background: 'var(--accent)', boxShadow: '2px 2px 0 0 var(--line)' }}>
+              ⚔️
             </div>
-            <span className="ml-auto text-white/30">→</span>
+            <div className="font-display text-[14px] leading-tight">Izazovi</div>
+            <div className="font-mono text-[10px] font-bold opacity-60 uppercase tracking-wider mt-0.5">Igraj protiv prijatelja</div>
+          </Link>
+          <Link
+            to="/leaderboard"
+            className="btl sh-4 p-3 text-left hover:-translate-y-0.5 transition-transform"
+            style={{ background: '#fff' }}
+          >
+            <div className="w-10 h-10 btl btl-sm grid place-items-center mb-2 text-xl" style={{ background: 'var(--accent)', boxShadow: '2px 2px 0 0 var(--line)' }}>
+              🏆
+            </div>
+            <div className="font-display text-[14px] leading-tight">Ljestvica</div>
+            <div className="font-mono text-[10px] font-bold opacity-60 uppercase tracking-wider mt-0.5">Vidi tko je prvi</div>
           </Link>
         </section>
 
-        {/* Subscribe CTA */}
+        {/* Sign up CTA */}
         {!user && (
-          <section className="mt-8 rounded-3xl bg-gradient-to-br from-indigo-900/50 to-purple-900/50 border border-indigo-500/30 p-6 text-center">
-            <p className="text-white font-bold text-lg mb-1">Registriraj se besplatno</p>
-            <p className="text-white/60 text-sm mb-4">Prati svoje rezultate, ulazi na top listu i izazivaj prijatelje.</p>
-            <Link
-              to="/signup"
-              className="inline-block bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-6 py-2.5 rounded-xl transition-colors"
-            >
-              Stvori račun
+          <section className="btl sh-ink-acc p-6 text-center anim-slideup" style={{ background: 'var(--ink)', color: '#fff' }}>
+            <p className="font-display text-[22px] leading-tight mb-1">Priključi se besplatno</p>
+            <p className="font-mono text-[11px] opacity-70 mb-4">Prati rezultate, penjuj se na ljestvicu i izazivaj prijatelje</p>
+            <Link to="/signup" className="btn" style={{ background: '#fff', color: 'var(--ink)' }}>
+              Stvori račun →
             </Link>
           </section>
         )}
       </main>
 
-      <footer className="border-t border-white/10 py-6 px-4 text-center mt-8">
-        <div className="flex items-center justify-center gap-4 text-xs text-gray-600">
+      <footer className="border-t-[2.5px] py-5 px-4 text-center mt-6" style={{ borderColor: 'var(--line)' }}>
+        <div className="flex items-center justify-center gap-4 font-mono text-[10px] opacity-40 uppercase tracking-widest">
           <span>© {new Date().getFullYear()} Quizzo Club</span>
           <span>·</span>
-          <Link to="/subscribe" className="hover:text-gray-400">Pro pretplata</Link>
+          <Link to="/subscribe" className="hover:opacity-70">Pro</Link>
         </div>
       </footer>
     </div>

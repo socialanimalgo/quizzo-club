@@ -4,159 +4,151 @@ import { api } from '../lib/api'
 
 type Tab = 'alltime' | 'weekly' | 'daily'
 
-const tabLabels: Record<Tab, string> = {
-  alltime: '🏆 Svo vrijeme',
-  weekly:  '📅 Ovaj tjedan',
-  daily:   '☀️ Danas',
-}
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: 'alltime', label: 'Sve vrijeme', icon: '👑' },
+  { key: 'weekly',  label: 'Tjedan',      icon: '📅' },
+  { key: 'daily',   label: 'Danas',       icon: '✦' },
+]
 
-function getFlag(name: string) {
-  // Simple avatar placeholder using initials
-  return name?.charAt(0)?.toUpperCase() || '?'
-}
+const MEDALS = ['🥇', '🥈', '🥉']
 
 export default function Leaderboard() {
   const [searchParams] = useSearchParams()
-  const defaultTab = (searchParams.get('type') as Tab) || 'alltime'
-  const [tab, setTab] = useState<Tab>(defaultTab)
+  const [tab, setTab] = useState<Tab>((searchParams.get('type') as Tab) || 'alltime')
   const [data, setData] = useState<{ leaderboard: any[]; my_rank: any }>({ leaderboard: [], my_rank: null })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    api.leaderboard.get(tab)
-      .then(d => {
-        setData(d)
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
+    api.leaderboard.get(tab).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
   }, [tab])
 
-  function displayScore(row: any) {
+  function score(row: any) {
     if (tab === 'alltime') return `${row.xp ?? 0} XP`
     if (tab === 'weekly') return `${row.total_score ?? 0} pt`
     return `${row.score ?? 0} pt`
   }
 
-  function displaySub(row: any) {
+  function sub(row: any) {
     if (tab === 'alltime') return `${row.total_quizzes ?? 0} kvizova`
-    if (tab === 'weekly') return `${row.total_correct ?? 0} točnih`
+    if (tab === 'weekly') return `${row.quizzes_played ?? 0} kvizova`
     return `${row.correct_count ?? 0}/10 točnih`
   }
 
-  const medal = (rank: number) => rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : null
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-slate-900">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-gray-950/80 backdrop-blur border-b border-white/10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link to="/" className="text-white/40 hover:text-white/70 transition-colors">←</Link>
-          <h1 className="text-white font-black text-lg">Top lista</h1>
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
+      <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
+        <div className="max-w-xl mx-auto flex items-center gap-3">
+          <Link to="/" className="btl btl-sm sh-2 w-9 h-9 grid place-items-center" style={{ background: '#fff' }}>←</Link>
+          <h1 className="font-display text-[22px]">Ljestvica</h1>
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6">
+      <div className="max-w-xl mx-auto px-4 py-4">
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 bg-white/5 rounded-2xl p-1">
-          {(Object.keys(tabLabels) as Tab[]).map(t => (
+        <div className="btl sh-3 p-1 flex gap-1 mb-4" style={{ background: '#fff' }}>
+          {TABS.map(t => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-all ${
-                tab === t
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-white/50 hover:text-white/80'
-              }`}
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`flex-1 py-2 font-mono text-[10px] font-bold uppercase tracking-widest rounded-[10px] flex items-center justify-center gap-1 ${tab === t.key ? '' : 'opacity-50'}`}
+              style={tab === t.key ? { background: 'var(--ink)', color: '#fff', border: '1.5px solid var(--line)' } : {}}
             >
-              {tabLabels[t]}
+              {t.icon} {t.label}
             </button>
           ))}
         </div>
 
-        {/* My rank (if not in top 50) */}
+        {/* My rank banner */}
         {data.my_rank && Number(data.my_rank.rank) > 50 && (
-          <div className="mb-4 p-4 rounded-2xl bg-indigo-600/20 border border-indigo-500/30">
-            <div className="flex items-center gap-3">
-              <span className="text-white/40 font-bold text-lg w-8">#{data.my_rank.rank}</span>
-              <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold">
-                {getFlag(data.my_rank.first_name)}
-              </div>
-              <div className="flex-1">
-                <div className="text-white font-semibold text-sm">{data.my_rank.first_name} {data.my_rank.last_name} <span className="text-indigo-300 text-xs">(Ti)</span></div>
-                <div className="text-white/40 text-xs">{displaySub(data.my_rank)}</div>
-              </div>
-              <div className="text-indigo-300 font-bold text-sm">{displayScore(data.my_rank)}</div>
+          <div className="btl sh-4 p-3 flex items-center gap-3 mb-4" style={{ background: 'var(--accent)' }}>
+            <div className="w-9 h-9 btl btl-sm grid place-items-center font-mono font-bold text-[12px] tabular" style={{ background: '#fff', borderWidth: 2 }}>
+              {data.my_rank.rank}
             </div>
+            <div className="w-8 h-8 btl btl-sm grid place-items-center font-bold text-sm" style={{ background: '#fff' }}>
+              {data.my_rank.first_name?.[0]?.toUpperCase()}
+            </div>
+            <div className="flex-1">
+              <div className="font-display text-[14px]">{data.my_rank.first_name}</div>
+              <div className="font-mono text-[10px] opacity-70">{sub(data.my_rank)}</div>
+            </div>
+            <span className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>TI</span>
           </div>
         )}
 
-        {/* Leaderboard list */}
         {loading ? (
           <div className="space-y-2">
-            {[...Array(10)].map((_, i) => (
-              <div key={i} className="h-16 rounded-2xl bg-white/5 animate-pulse" />
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="btl h-16 animate-pulse" style={{ background: '#fff' }} />
             ))}
           </div>
         ) : data.leaderboard.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-5xl mb-3">📊</div>
-            <p className="text-white/40">Nema podataka za ovaj period.</p>
-            {tab === 'daily' && <p className="text-white/30 text-sm mt-1">Budi prvi koji će riješiti dnevni kviz danas!</p>}
+          <div className="btl sh-3 p-8 text-center" style={{ background: '#fff' }}>
+            <div className="text-[44px] mb-2">📊</div>
+            <div className="font-display text-[16px]">Nema podataka još.</div>
+            {tab === 'daily' && <div className="font-mono text-[10px] opacity-60 mt-1">Budi prvi koji će riješiti dnevni kviz!</div>}
           </div>
         ) : (
-          <div className="space-y-2">
-            {data.leaderboard.map((row, i) => {
-              const rank = Number(row.rank ?? i + 1)
-              const isMe = data.my_rank?.user_id === row.user_id
-              return (
-                <div
-                  key={row.user_id}
-                  className={`flex items-center gap-3 p-4 rounded-2xl border transition-all ${
-                    rank <= 3
-                      ? 'bg-gradient-to-r from-yellow-500/10 to-amber-500/5 border-yellow-500/20'
-                      : isMe
-                      ? 'bg-indigo-600/15 border-indigo-500/30'
-                      : 'bg-white/3 border-white/5'
-                  }`}
-                >
-                  {/* Rank */}
-                  <div className="w-8 text-center">
-                    {medal(rank) || (
-                      <span className="text-white/30 font-bold text-sm">#{rank}</span>
-                    )}
-                  </div>
-
-                  {/* Avatar */}
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${
-                    rank === 1 ? 'bg-yellow-500 text-yellow-900'
-                    : rank === 2 ? 'bg-gray-400 text-gray-800'
-                    : rank === 3 ? 'bg-amber-600 text-amber-100'
-                    : 'bg-white/10 text-white/60'
-                  }`}>
-                    {row.avatar_url
-                      ? <img src={row.avatar_url} className="w-9 h-9 rounded-full object-cover" alt="" />
-                      : getFlag(row.first_name)
-                    }
-                  </div>
-
-                  {/* Name */}
-                  <div className="flex-1 min-w-0">
-                    <div className="text-white font-semibold text-sm truncate">
-                      {row.first_name} {row.last_name}
-                      {isMe && <span className="text-indigo-300 text-xs ml-1">(Ti)</span>}
+          <>
+            {/* Podium top 3 */}
+            {data.leaderboard.length >= 3 && (
+              <div className="grid grid-cols-3 gap-2 mb-4 items-end">
+                {[1, 0, 2].map((order, viz) => {
+                  const row = data.leaderboard[order]
+                  if (!row) return <div key={viz} />
+                  const h = viz === 1 ? 110 : viz === 0 ? 84 : 72
+                  const bg = order === 0 ? '#fde68a' : order === 1 ? '#e5e7eb' : '#fed7aa'
+                  return (
+                    <div key={order} className="flex flex-col items-center">
+                      <div className="font-display text-[13px] mt-1 text-center truncate w-full">
+                        {row.first_name}
+                      </div>
+                      <div className="font-mono text-[10px] font-bold tabular opacity-70">{score(row)}</div>
+                      <div className="btl sh-3 w-full mt-1.5 grid place-items-center anim-slideup" style={{ background: bg, height: h }}>
+                        <div className="text-[20px]">{MEDALS[order]}</div>
+                        <div className="font-display text-[16px] leading-none">#{Number(row.rank ?? order + 1)}</div>
+                      </div>
                     </div>
-                    <div className="text-white/40 text-xs">{displaySub(row)}</div>
-                  </div>
+                  )
+                })}
+              </div>
+            )}
 
-                  {/* Score */}
-                  <div className={`font-bold text-sm tabular-nums ${rank <= 3 ? 'text-yellow-300' : 'text-indigo-300'}`}>
-                    {displayScore(row)}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+            {/* Rest of the list */}
+            <div className="btl sh-3 p-2" style={{ background: '#fff' }}>
+              <div className="flex flex-col gap-1">
+                {data.leaderboard.slice(data.leaderboard.length >= 3 ? 3 : 0).map((row, i) => {
+                  const rank = Number(row.rank ?? i + 4)
+                  const isMe = data.my_rank?.user_id === row.user_id
+                  return (
+                    <div
+                      key={row.user_id}
+                      className="flex items-center gap-3 p-2 rounded-[10px] anim-slidein"
+                      style={{
+                        animationDelay: `${i * 0.03}s`,
+                        background: isMe ? 'var(--accent-soft)' : 'transparent'
+                      }}
+                    >
+                      <div className="w-7 h-7 btl btl-sm grid place-items-center font-mono text-[11px] font-bold tabular" style={{ background: 'var(--paper-deep)', borderWidth: 1.5 }}>
+                        {rank}
+                      </div>
+                      <div className="w-8 h-8 btl btl-sm grid place-items-center font-bold text-sm" style={{ background: isMe ? 'var(--accent)' : '#fff', borderWidth: 1.5 }}>
+                        {row.first_name?.[0]?.toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-display text-[13px] truncate">
+                          {row.first_name} {row.last_name}
+                          {isMe && <span className="font-mono text-[9px] opacity-60 ml-1">(ti)</span>}
+                        </div>
+                        <div className="font-mono text-[10px] opacity-60">{sub(row)}</div>
+                      </div>
+                      <div className="font-mono text-[12px] font-bold tabular">{score(row)}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -4,18 +4,19 @@ import { api } from '../lib/api'
 
 type Mode = 'challenge' | 'hunter'
 
-const modeInfo = {
-  challenge: {
-    label: 'Izazov',
-    emoji: '⚔️',
-    desc: 'Oboje odgovarate na ista pitanja, pobjeđuje točniji.',
-  },
-  hunter: {
-    label: 'Hunter Mode',
-    emoji: '🎯',
-    desc: 'Svaki igrač dobiva različita pitanja iz iste kategorije. Pobjeđuje bolji lov!',
-  },
+const MODES = {
+  challenge: { emoji: '⚔️', label: 'Izazov', desc: 'Ista pitanja, pobjeđuje točniji.' },
+  hunter:    { emoji: '🎯', label: 'Hunter Mode', desc: 'Različita pitanja, ista kategorija.' },
 }
+
+const CATEGORIES = [
+  { id: 'geography',   emoji: '🌍', name: 'Geografija',      hue: 220 },
+  { id: 'history',     emoji: '📚', name: 'Povijest',        hue: 35  },
+  { id: 'sports',      emoji: '⚽', name: 'Sport',           hue: 150 },
+  { id: 'science',     emoji: '🔬', name: 'Priroda i Znan.', hue: 280 },
+  { id: 'film_music',  emoji: '🎬', name: 'Film i Glazba',   hue: 345 },
+  { id: 'pop_culture', emoji: '🎭', name: 'Pop Kultura',     hue: 25  },
+]
 
 export default function Challenges() {
   const navigate = useNavigate()
@@ -23,227 +24,167 @@ export default function Challenges() {
   const joinCode = searchParams.get('code')
 
   const [user, setUser] = useState<any>(null)
-  const [categories, setCategories] = useState<any[]>([])
-  const [selectedCat, setSelectedCat] = useState('')
+  const [selectedCat, setSelectedCat] = useState('geography')
   const [mode, setMode] = useState<Mode>('challenge')
   const [creating, setCreating] = useState(false)
-  const [shareCode, setShareCode] = useState('')
   const [joining, setJoining] = useState(false)
-  const [joinChallengeCode, setJoinChallengeCode] = useState(joinCode || '')
+  const [joinCode_, setJoinCode] = useState(joinCode || '')
   const [challengeInfo, setChallengeInfo] = useState<any>(null)
-  const [loading, setLoading] = useState(false)
+  const [shareCode, setShareCode] = useState('')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    Promise.all([
-      api.auth.getUser(),
-      api.quiz.categories(),
-    ]).then(([u, cats]) => {
-      setUser(u)
-      setCategories(cats.categories)
-      if (cats.categories.length) setSelectedCat(cats.categories[0].id)
-    })
-
-    if (joinCode) {
-      lookupChallenge(joinCode)
-    }
+    api.auth.getUser().then(setUser)
+    if (joinCode) lookupChallenge(joinCode)
   }, [])
 
   async function lookupChallenge(code: string) {
-    setLoading(true)
-    try {
-      const data = await api.challenges.get(code)
-      setChallengeInfo(data.challenge)
-    } catch {
-      setChallengeInfo(null)
-    }
-    setLoading(false)
+    try { const d = await api.challenges.get(code); setChallengeInfo(d.challenge) } catch { setChallengeInfo(null) }
   }
 
   async function handleCreate() {
     if (!user) { navigate('/signin'); return }
-    if (!selectedCat) return
     setCreating(true)
     try {
       const data = await api.challenges.create(selectedCat, mode)
       setShareCode(data.share_code)
-      navigate('/quiz/play', {
-        state: {
-          session: {
-            session_id: data.session_id,
-            questions: data.questions,
-            challenge_id: data.challenge_id,
-          },
-        },
-      })
-    } catch (err: any) {
-      alert(err.message || 'Greška')
-      setCreating(false)
-    }
+      navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id } } })
+    } catch (err: any) { alert(err.message || 'Greška'); setCreating(false) }
   }
 
   async function handleJoin() {
     if (!user) { navigate('/signin'); return }
-    const code = joinChallengeCode.trim().toUpperCase()
+    const code = joinCode_.trim().toUpperCase()
     if (!code) return
     setJoining(true)
     try {
       const data = await api.challenges.accept(code)
-      navigate('/quiz/play', {
-        state: {
-          session: {
-            session_id: data.session_id,
-            questions: data.questions,
-            challenge_id: data.challenge_id,
-          },
-        },
-      })
-    } catch (err: any) {
-      alert(err.message || 'Izazov nije pronađen')
-      setJoining(false)
-    }
+      navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id } } })
+    } catch (err: any) { alert(err.message || 'Izazov nije pronađen'); setJoining(false) }
   }
 
-  const selectedCatData = categories.find(c => c.id === selectedCat)
+  function copyLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/challenges?code=${shareCode}`)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-slate-900">
-      {/* Header */}
-      <header className="sticky top-0 z-20 bg-gray-950/80 backdrop-blur border-b border-white/10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link to="/" className="text-white/40 hover:text-white/70 transition-colors">←</Link>
-          <h1 className="text-white font-black text-lg">Izazovi</h1>
+    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
+      <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
+        <div className="max-w-xl mx-auto flex items-center gap-3">
+          <Link to="/" className="btl btl-sm sh-2 w-9 h-9 grid place-items-center" style={{ background: '#fff' }}>←</Link>
+          <h1 className="font-display text-[22px]">Izazovi</h1>
         </div>
       </header>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-6">
-
-        {/* Join a challenge */}
-        <section className="bg-white/5 border border-white/10 rounded-3xl p-6">
-          <h2 className="text-white font-bold text-lg mb-4">📨 Prihvati izazov</h2>
-          <p className="text-white/50 text-sm mb-4">
-            Netko ti je poslao link ili kod? Unesi ga ovdje.
-          </p>
+      <div className="max-w-xl mx-auto px-4 py-4 space-y-3">
+        {/* Accept */}
+        <div className="btl sh-4 p-4" style={{ background: '#fff' }}>
+          <div className="flex items-center gap-2 mb-2">
+            <span className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>✉</span>
+            <div className="font-display text-[15px]">Prihvati izazov</div>
+          </div>
+          <div className="font-mono text-[10px] opacity-60 uppercase tracking-wider mb-2">Upiši kod prijatelja</div>
           <div className="flex gap-2">
             <input
-              value={joinChallengeCode}
+              value={joinCode_}
               onChange={e => {
-                setJoinChallengeCode(e.target.value.toUpperCase())
-                if (e.target.value.length === 10) lookupChallenge(e.target.value)
+                const v = e.target.value.toUpperCase()
+                setJoinCode(v)
+                if (v.length >= 8) lookupChallenge(v)
               }}
-              placeholder="Unesi kod (npr. A1B2C3)"
+              placeholder="UNESI KOD"
               maxLength={10}
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-white/30 focus:outline-none focus:border-indigo-500 tracking-widest font-mono"
+              className="inp flex-1 tracking-[0.2em]"
             />
-            <button
-              onClick={handleJoin}
-              disabled={joining || !joinChallengeCode.trim()}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white font-semibold px-5 py-2.5 rounded-xl transition-colors disabled:opacity-50"
-            >
+            <button onClick={handleJoin} disabled={joining || !joinCode_.trim()} className="btn btn-primary">
               {joining ? '…' : 'Prihvati'}
             </button>
           </div>
           {challengeInfo && (
-            <div className="mt-3 p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-              <p className="text-white/80 text-sm">
-                <strong>{challengeInfo.challenger_name}</strong> te izaziva u kategoriji{' '}
-                <strong>{challengeInfo.category_emoji} {challengeInfo.category_name}</strong>
-                {' '}({modeInfo[challengeInfo.mode as Mode]?.label || challengeInfo.mode})
-              </p>
+            <div className="btl btl-sm mt-2 p-2.5 anim-pop" style={{ background: 'var(--accent-soft)' }}>
+              <span className="font-mono text-[11px] font-bold">
+                {challengeInfo.challenger_name} te izaziva u {challengeInfo.category_emoji} {challengeInfo.category_name}
+              </span>
             </div>
           )}
-        </section>
+        </div>
 
-        {/* Create a challenge */}
-        <section className="bg-white/5 border border-white/10 rounded-3xl p-6">
-          <h2 className="text-white font-bold text-lg mb-4">🆕 Stvori izazov</h2>
+        {/* Create */}
+        <div className="btl sh-4 p-4" style={{ background: '#fff' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="chip" style={{ background: 'var(--accent)' }}>+</span>
+            <div className="font-display text-[15px]">Stvori izazov</div>
+          </div>
 
-          {/* Mode selection */}
-          <div className="grid grid-cols-2 gap-3 mb-5">
-            {(Object.entries(modeInfo) as [Mode, typeof modeInfo['challenge']][]).map(([key, info]) => (
+          <div className="font-mono text-[10px] opacity-60 uppercase tracking-wider mb-2">Odaberi mod</div>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {(Object.entries(MODES) as [Mode, typeof MODES['challenge']][]).map(([key, m]) => (
               <button
                 key={key}
                 onClick={() => setMode(key)}
-                className={`p-4 rounded-2xl border text-left transition-all ${
-                  mode === key
-                    ? 'bg-indigo-600/30 border-indigo-500/60'
-                    : 'bg-white/3 border-white/10 hover:bg-white/8'
-                }`}
+                className="btl p-3 text-left"
+                style={{
+                  background: mode === key ? 'var(--accent)' : '#fff',
+                  boxShadow: mode === key ? '4px 4px 0 0 var(--line)' : '2px 2px 0 0 var(--line)'
+                }}
               >
-                <div className="text-2xl mb-1">{info.emoji}</div>
-                <div className="text-white font-semibold text-sm">{info.label}</div>
-                <div className="text-white/40 text-xs mt-0.5 leading-snug">{info.desc}</div>
+                <div className="text-xl mb-1">{m.emoji}</div>
+                <div className="font-display text-[13px] leading-tight">{m.label}</div>
+                <div className="font-mono text-[9px] opacity-70 mt-0.5 leading-tight">{m.desc}</div>
               </button>
             ))}
           </div>
 
-          {/* Category selection */}
-          <div className="mb-5">
-            <label className="text-white/60 text-sm block mb-2">Kategorija</label>
-            <div className="grid grid-cols-3 gap-2">
-              {categories.map(cat => (
-                <button
-                  key={cat.id}
-                  onClick={() => setSelectedCat(cat.id)}
-                  className={`p-3 rounded-xl border text-center transition-all ${
-                    selectedCat === cat.id
-                      ? 'bg-indigo-600/30 border-indigo-500/60'
-                      : 'bg-white/3 border-white/10 hover:bg-white/8'
-                  }`}
-                >
-                  <div className="text-xl">{cat.emoji}</div>
-                  <div className="text-white text-xs mt-0.5 font-medium leading-tight">{cat.name}</div>
-                </button>
-              ))}
-            </div>
+          <div className="font-mono text-[10px] opacity-60 uppercase tracking-wider mb-2">Kategorija</div>
+          <div className="grid grid-cols-3 gap-2 mb-3">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCat(cat.id)}
+                className="btl p-2 text-center"
+                style={{
+                  background: selectedCat === cat.id ? `oklch(0.9 0.1 ${cat.hue})` : '#fff',
+                  boxShadow: selectedCat === cat.id ? '3px 3px 0 0 var(--line)' : '2px 2px 0 0 var(--line)'
+                }}
+              >
+                <div className="text-xl">{cat.emoji}</div>
+                <div className="font-mono text-[9px] font-bold uppercase tracking-wider truncate">{cat.name.split(' ')[0]}</div>
+              </button>
+            ))}
           </div>
 
-          <button
-            onClick={handleCreate}
-            disabled={creating || !selectedCat}
-            className="w-full py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold transition-colors disabled:opacity-50"
-          >
-            {creating ? '…' : `Stvori ${modeInfo[mode].label}`}
+          <button onClick={handleCreate} disabled={creating} className="btn btn-primary w-full">
+            {creating ? '…' : `Stvori ${MODES[mode].label}`}
           </button>
 
           {shareCode && (
-            <div className="mt-4 p-4 rounded-2xl bg-green-500/10 border border-green-500/20 text-center">
-              <p className="text-white/60 text-sm mb-2">Pošalji ovaj kod prijatelju</p>
-              <div className="text-white font-black text-3xl tracking-widest font-mono mb-3">{shareCode}</div>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(`${window.location.origin}/challenges?code=${shareCode}`)
-                  alert('Link kopiran!')
-                }}
-                className="bg-white/10 hover:bg-white/20 text-white text-sm px-4 py-2 rounded-xl transition-colors"
-              >
-                📋 Kopiraj link
+            <div className="btl btl-sm mt-3 p-3 text-center anim-pop" style={{ background: '#fde68a', borderWidth: 2 }}>
+              <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Pošalji prijatelju</div>
+              <div className="font-mono font-bold text-[26px] tracking-[0.25em] tabular my-1">{shareCode}</div>
+              <button onClick={copyLink} className="btn btn-sm mt-1">
+                {copied ? '✓ Kopirano!' : '📋 Kopiraj link'}
               </button>
             </div>
           )}
-        </section>
+        </div>
 
         {/* How it works */}
-        <section className="bg-white/3 border border-white/5 rounded-3xl p-6">
-          <h2 className="text-white/70 font-semibold mb-4">Kako funkcionira?</h2>
-          <div className="space-y-3 text-sm text-white/50">
-            <div className="flex gap-3">
-              <span className="text-lg">1️⃣</span>
-              <p>Odaberi kategoriju i mod, klikni "Stvori izazov".</p>
+        <div className="btl sh-3 p-4" style={{ background: 'var(--paper-deep)' }}>
+          <div className="font-mono text-[10px] font-bold uppercase tracking-widest mb-2">// Kako funkcionira</div>
+          {[
+            'Odaberi kategoriju i mod',
+            'Klikni "Stvori izazov"',
+            'Pošalji prijatelju kod',
+            'Pobjeđuje tko je točniji!',
+          ].map((s, i) => (
+            <div key={i} className="flex items-center gap-2 mb-1.5">
+              <span className="w-5 h-5 btl btl-sm grid place-items-center font-mono text-[10px] font-bold" style={{ background: 'var(--accent)', borderWidth: 1.5 }}>{i + 1}</span>
+              <span className="text-[12px]">{s}</span>
             </div>
-            <div className="flex gap-3">
-              <span className="text-lg">2️⃣</span>
-              <p>Odmah rješavaš svoja pitanja.</p>
-            </div>
-            <div className="flex gap-3">
-              <span className="text-lg">3️⃣</span>
-              <p>Pošalji prijatelju dobiveni kod. On/ona ga upiše i odgovara na pitanja.</p>
-            </div>
-            <div className="flex gap-3">
-              <span className="text-lg">4️⃣</span>
-              <p>Nakon što oboje završite, vidite tko je pobijedio — više točnih odgovora pobjeđuje!</p>
-            </div>
-          </div>
-        </section>
+          ))}
+        </div>
       </div>
     </div>
   )
