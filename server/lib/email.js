@@ -121,4 +121,23 @@ async function sendTrialStartedEmail(email, firstName, plan) {
   }
 }
 
-module.exports = { sendWelcomeEmail, sendTrialStartedEmail };
+async function sendNewUserAlert(newUserEmail, firstName, lastName, method) {
+  const resend = getResend();
+  const adminEmail = process.env.ADMIN_EMAIL;
+  if (!resend || !adminEmail) return;
+  const name = [firstName, lastName].filter(Boolean).join(' ') || '—';
+  try {
+    await resend.emails.send({
+      from: FROM,
+      to: [adminEmail],
+      subject: `New signup: ${name} (${newUserEmail})`,
+      html: `<p>New user signed up via <strong>${method}</strong>.</p>
+             <p><strong>Name:</strong> ${name}<br>
+             <strong>Email:</strong> ${newUserEmail}</p>`,
+    });
+  } catch (err) {
+    console.error('New user alert error:', err?.message);
+  }
+}
+
+module.exports = { sendWelcomeEmail, sendTrialStartedEmail, sendNewUserAlert };

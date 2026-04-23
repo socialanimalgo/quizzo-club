@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const https = require('https');
 const { authMiddleware } = require('../middleware/auth');
-const { sendWelcomeEmail } = require('../lib/email');
+const { sendWelcomeEmail, sendNewUserAlert } = require('../lib/email');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
@@ -87,6 +87,7 @@ router.post('/register', async (req, res) => {
 
     const user = result.rows[0];
     sendWelcomeEmail(user.email, user.first_name);
+    sendNewUserAlert(user.email, user.first_name, user.last_name, 'email');
     res.status(201).json({ token: createToken(user.id), user: sanitizeUser(user) });
   } catch (err) {
     console.error('Register error:', err);
@@ -200,6 +201,7 @@ router.get('/google/callback', async (req, res) => {
         );
         user = result.rows[0];
         sendWelcomeEmail(user.email, user.first_name);
+        sendNewUserAlert(user.email, user.first_name, user.last_name, 'Google');
       }
     }
 

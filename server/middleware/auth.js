@@ -33,12 +33,17 @@ function optionalAuth(req, res, next) {
   next();
 }
 
-function adminMiddleware(req, res, next) {
+async function adminMiddleware(req, res, next) {
   const adminEmail = process.env.ADMIN_EMAIL;
-  if (!adminEmail || req.user?.email !== adminEmail) {
-    return res.status(403).json({ error: 'Forbidden' });
+  if (!adminEmail) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const pool = req.app.get('pool');
+    const result = await pool.query('SELECT email FROM users WHERE id = $1', [req.userId]);
+    if (result.rows[0]?.email !== adminEmail) return res.status(403).json({ error: 'Forbidden' });
+    next();
+  } catch {
+    res.status(500).json({ error: 'Internal server error' });
   }
-  next();
 }
 
 module.exports = { authMiddleware, optionalAuth, adminMiddleware };

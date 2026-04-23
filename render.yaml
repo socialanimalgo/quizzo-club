@@ -20,3 +20,11 @@ services:
         generateValue: true
       - key: NODE_ENV
         value: production
+      - key: BASE_URL
+        value: https://quizzo.club
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
