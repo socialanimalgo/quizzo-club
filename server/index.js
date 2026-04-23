@@ -2,6 +2,7 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
+const { execFileSync } = require('child_process');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
 
@@ -117,6 +118,21 @@ async function start() {
   try {
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf-8');
     await pool.query(schema);
+    const { rows } = await pool.query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM categories) AS category_count,
+         (SELECT COUNT(*)::int FROM questions WHERE active = true) AS active_question_count`
+    );
+
+    const { category_count: categoryCount, active_question_count: activeQuestionCount } = rows[0];
+    if (categoryCount > 0 && activeQuestionCount === 0) {
+      console.log('No active questions found, running automatic seed...');
+      execFileSync(process.execPath, [path.join(__dirname, 'seeds', 'questions.js')], {
+        stdio: 'inherit',
+        env: process.env,
+      });
+    }
+
     console.log('Database schema migration complete');
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (err) {
