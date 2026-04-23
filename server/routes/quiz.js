@@ -5,6 +5,19 @@ const { maybeNotifyLeaderboard, maybeNotifyStreak } = require('../lib/notificati
 
 const DAILY_QUESTION_COUNT = 30;
 
+function normalizeQuestionIds(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 async function getOrCreateDailyQuiz(pool) {
   const { rows: dRows } = await pool.query(
     'SELECT * FROM daily_quizzes WHERE quiz_date = CURRENT_DATE'
@@ -41,11 +54,14 @@ async function getOrCreateDailyQuiz(pool) {
 }
 
 async function loadOrderedQuestions(pool, questionIds) {
+  const ids = normalizeQuestionIds(questionIds);
+  if (!ids.length) return [];
+
   const { rows: questions } = await pool.query(
     `SELECT id, question, options FROM questions WHERE id = ANY($1::uuid[])`,
-    [questionIds]
+    [ids]
   );
-  return questionIds.map(id => questions.find(q => q.id === id));
+  return ids.map(id => questions.find(q => q.id === id)).filter(Boolean);
 }
 
 // GET /api/quiz/categories
@@ -280,6 +296,24 @@ router.post('/daily/start', authMiddleware, async (req, res) => {
     );
 
     let session = existingRows[0];
+    let normalizedSessionIds = normalizeQuestionIds(session?.question_ids);
+    let questions = session ? await loadOrderedQuestions(pool, normalizedSessionIds) : [];
+
+    const badExistingSession =
+      session &&
+      (
+        !session.id ||
+        normalizedSessionIds.length !== daily.question_ids.length ||
+        questions.length !== daily.question_ids.length
+      );
+
+    if (badExistingSession) {
+      await pool.query('DELETE FROM quiz_sessions WHERE id = $1', [session.id]);
+      session = null;
+      normalizedSessionIds = [];
+      questions = [];
+    }
+
     if (!session) {
       const { rows } = await pool.query(
         `INSERT INTO quiz_sessions (user_id, category_id, session_type, question_ids, total_questions)
@@ -288,9 +322,13 @@ router.post('/daily/start', authMiddleware, async (req, res) => {
         [userId, JSON.stringify(daily.question_ids), daily.question_ids.length]
       );
       session = rows[0];
+      normalizedSessionIds = normalizeQuestionIds(session.question_ids);
+      questions = await loadOrderedQuestions(pool, normalizedSessionIds);
     }
 
-    const questions = await loadOrderedQuestions(pool, session.question_ids);
+    if (questions.length !== daily.question_ids.length) {
+      return res.status(500).json({ error: 'Daily quiz session is invalid' });
+    }
 
     res.json({
       session_id: session.id,
