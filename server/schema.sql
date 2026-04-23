@@ -1,3 +1,25 @@
+-- If categories.id is not TEXT (old lingee-app schema with INTEGER id),
+-- drop all quiz tables so they can be recreated with the correct schema.
+-- Users and subscriptions are preserved.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'categories'
+      AND column_name = 'id'
+      AND data_type != 'text'
+  ) THEN
+    DROP TABLE IF EXISTS challenges CASCADE;
+    DROP TABLE IF EXISTS daily_completions CASCADE;
+    DROP TABLE IF EXISTS quiz_sessions CASCADE;
+    DROP TABLE IF EXISTS daily_quizzes CASCADE;
+    DROP TABLE IF EXISTS questions CASCADE;
+    DROP TABLE IF EXISTS user_stats CASCADE;
+    DROP TABLE IF EXISTS categories CASCADE;
+    DROP TABLE IF EXISTS page_visits CASCADE;
+  END IF;
+END $$;
+
 -- Users
 CREATE TABLE IF NOT EXISTS users (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
