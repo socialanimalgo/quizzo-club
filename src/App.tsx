@@ -10,6 +10,7 @@ import QuizResults from './pages/QuizResults'
 import Leaderboard from './pages/Leaderboard'
 import Challenges from './pages/Challenges'
 import DailyQuiz from './pages/DailyQuiz'
+import Profile from './pages/Profile'
 import { api } from './lib/api'
 
 export default function App() {
@@ -30,6 +31,7 @@ export default function App() {
       <Route path="/signup" element={<SignUp />} />
       <Route path="/admin" element={<Admin />} />
       <Route path="/subscribe" element={<Subscribe />} />
+      <Route path="/profile" element={<Profile />} />
     </Routes>
   )
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import BottomNav from '../components/BottomNav'
 
 type Mode = 'challenge' | 'hunter'
 
@@ -70,15 +71,14 @@ export default function Challenges() {
   }
 
   return (
-    <div className="min-h-screen" style={{ background: 'var(--paper)' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: 'var(--paper)' }}>
       <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
         <div className="max-w-xl mx-auto flex items-center gap-3">
-          <Link to="/" className="btl btl-sm sh-2 w-9 h-9 grid place-items-center" style={{ background: '#fff' }}>←</Link>
-          <h1 className="font-display text-[22px]">Izazovi</h1>
+          <h1 className="font-display text-[22px]">⚔️ Izazovi</h1>
         </div>
       </header>
 
-      <div className="max-w-xl mx-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto px-4 py-4 space-y-3 w-full">
         {/* Accept */}
         <div className="btl sh-4 p-4" style={{ background: '#fff' }}>
           <div className="flex items-center gap-2 mb-2">
@@ -186,6 +186,7 @@ export default function Challenges() {
           ))}
         </div>
       </div>
+      <BottomNav />
     </div>
   )
 }
