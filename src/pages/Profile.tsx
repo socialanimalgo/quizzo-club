@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
+import Icon from '../components/Icon'
 
 export default function Profile() {
   const navigate = useNavigate()
   const [user, setUser] = useState<any>(null)
   const [myRank, setMyRank] = useState<any>(null)
+  const [countryCode, setCountryCode] = useState('HR')
 
   useEffect(() => {
     api.auth.getUser().then(u => {
@@ -13,6 +15,7 @@ export default function Profile() {
       setUser(u)
       api.leaderboard.get('alltime').then(d => setMyRank(d.my_rank)).catch(() => {})
     })
+    fetch('/api/locale').then(r => r.json()).then(d => setCountryCode(d.countryCode || 'HR')).catch(() => {})
   }, [navigate])
 
   if (!user) return null
@@ -20,11 +23,41 @@ export default function Profile() {
   const xp = myRank?.xp ?? 0
   const rank = myRank?.rank ?? '–'
   const quizzes = myRank?.total_quizzes ?? 0
+  const currentStreak = myRank?.current_streak ?? 0
+  const langLabel = countryCode === 'HR' ? 'Hrvatski' : 'English'
+  const langFlag = countryCode === 'HR' ? 'HR' : 'EN'
 
   function handleSignOut() {
     api.auth.logout()
     window.location.href = '/'
   }
+
+  const rows = [
+    {
+      id: 'notifications',
+      label: 'Obavijesti',
+      value: 'Uskoro',
+      icon: 'mail',
+      tone: '#fff',
+      href: undefined,
+    },
+    {
+      id: 'language',
+      label: 'Jezik',
+      value: `${langFlag} ${langLabel}`,
+      icon: 'globe-alt',
+      tone: '#fff',
+      href: undefined,
+    },
+    {
+      id: 'subscription',
+      label: 'Pretplata',
+      value: 'Besplatno',
+      icon: 'crown',
+      tone: '#fde68a',
+      href: '/subscribe',
+    },
+  ]
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
@@ -57,13 +90,16 @@ export default function Profile() {
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2">
           {[
+            { label: 'STREAK', value: currentStreak, suffix: <Icon name="flame" className="w-6 h-6" stroke={2.1} />, tone: '#fde68a' },
             { label: 'RANK', value: `#${rank}`, tone: '#fff' },
-            { label: 'XP', value: xp, tone: 'var(--accent)' },
-            { label: 'KVIZOVA', value: quizzes, tone: '#fff' },
+            { label: 'KVIZOVA', value: quizzes, tone: 'var(--accent)' },
           ].map(s => (
             <div key={s.label} className="btl sh-3" style={{ background: s.tone, padding: '12px 14px' }}>
               <div className="font-mono text-[10px] font-bold opacity-60 uppercase tracking-widest mb-1">{s.label}</div>
-              <div className="font-display text-[20px] leading-none tabular">{s.value}</div>
+              <div className="font-display text-[20px] leading-none tabular flex items-center gap-1.5">
+                <span>{s.value}</span>
+                {'suffix' in s ? s.suffix : null}
+              </div>
             </div>
           ))}
         </div>
@@ -71,17 +107,48 @@ export default function Profile() {
         {/* Actions */}
         <div className="btl sh-3 p-2" style={{ background: '#fff' }}>
           <div className="font-mono text-[10px] font-bold uppercase tracking-widest mb-1 opacity-60 px-1 pt-1">// POSTAVKE</div>
-          <Link to="/subscribe"
-            className="w-full flex items-center gap-3 py-2.5 px-1 text-left border-b-[1.5px]"
-            style={{ borderColor: 'rgba(0,0,0,.08)' }}>
-            <div className="btl btl-sm w-9 h-9 grid place-items-center" style={{ background: '#fde68a', borderWidth: 2 }}>👑</div>
-            <div className="flex-1 font-display text-[14px]">Pretplata</div>
-            <span className="font-mono text-[10px] opacity-60">›</span>
-          </Link>
+          {rows.map(row => {
+            const content = (
+              <>
+                <div className="btl btl-sm w-9 h-9 grid place-items-center" style={{ background: row.tone, borderWidth: 2 }}>
+                  <Icon name={row.icon} className="w-4 h-4" stroke={2.2} />
+                </div>
+                <div className="flex-1 font-display text-[14px]">{row.label}</div>
+                <span className="font-mono text-[10px] opacity-60">{row.value}</span>
+                <Icon name="chev" className="w-4 h-4 opacity-30" stroke={2.2} />
+              </>
+            )
+
+            if (row.href) {
+              return (
+                <Link
+                  key={row.id}
+                  to={row.href}
+                  className="w-full flex items-center gap-3 py-2.5 px-1 text-left border-b-[1.5px]"
+                  style={{ borderColor: 'rgba(0,0,0,.08)' }}
+                >
+                  {content}
+                </Link>
+              )
+            }
+
+            return (
+              <div
+                key={row.id}
+                className="w-full flex items-center gap-3 py-2.5 px-1 text-left border-b-[1.5px]"
+                style={{ borderColor: 'rgba(0,0,0,.08)' }}
+              >
+                {content}
+              </div>
+            )
+          })}
           <button onClick={handleSignOut}
             className="w-full flex items-center gap-3 py-2.5 px-1 text-left">
-            <div className="btl btl-sm w-9 h-9 grid place-items-center" style={{ background: '#fecaca', borderWidth: 2 }}>↩</div>
+            <div className="btl btl-sm w-9 h-9 grid place-items-center" style={{ background: '#fecaca', borderWidth: 2 }}>
+              <Icon name="back" className="w-4 h-4" stroke={2.2} />
+            </div>
             <div className="flex-1 font-display text-[14px]" style={{ color: '#dc2626' }}>Odjava</div>
+            <Icon name="chev" className="w-4 h-4 opacity-30" stroke={2.2} />
           </button>
         </div>
 

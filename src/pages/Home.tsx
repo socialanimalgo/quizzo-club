@@ -2,14 +2,15 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import QuizzoLogo from '../components/QuizzoLogo'
+import Icon from '../components/Icon'
 
 const CATEGORIES = [
-  { id: 'geography',   emoji: '🌍', name: 'Geografija',      hue: 220, count: 72 },
-  { id: 'history',     emoji: '📚', name: 'Povijest',        hue: 35,  count: 68 },
-  { id: 'sports',      emoji: '⚽', name: 'Sport',           hue: 150, count: 64 },
-  { id: 'science',     emoji: '🔬', name: 'Priroda i Znan.', hue: 280, count: 70 },
-  { id: 'film_music',  emoji: '🎬', name: 'Film i Glazba',   hue: 345, count: 66 },
-  { id: 'pop_culture', emoji: '🎭', name: 'Pop Kultura',     hue: 25,  count: 60 },
+  { id: 'geography',   icon: 'globe', name: 'Geografija',      hue: 220, count: 72 },
+  { id: 'history',     icon: 'scroll', name: 'Povijest',        hue: 35,  count: 68 },
+  { id: 'sports',      icon: 'trophy', name: 'Sport',           hue: 150, count: 64 },
+  { id: 'science',     icon: 'atom', name: 'Priroda i Znan.', hue: 280, count: 70 },
+  { id: 'film_music',  icon: 'music', name: 'Film i Glazba',   hue: 345, count: 66 },
+  { id: 'pop_culture', icon: 'mask', name: 'Pop Kultura',     hue: 25,  count: 60 },
 ]
 
 const WELCOME_TILES = [
@@ -85,7 +86,7 @@ export default function Home() {
                   boxShadow: '2.5px 2.5px 0 0 var(--accent)',
                   borderColor: '#fff',
                 }}>
-                <span className="text-[22px]">{tile.emoji}</span>
+              <span className="text-[22px]"><Icon name={CATEGORIES[i].icon} className="w-6 h-6" stroke={2.1} /></span>
               </div>
             ))}
           </div>
@@ -145,7 +146,7 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-1.5">
             <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
-              <span className="text-sm leading-none">🔥</span>
+              <Icon name="flame" className="w-4 h-4" stroke={2.1} />
               <span className="font-mono font-bold text-[12px] tabular">0</span>
             </div>
             <Link to="/profile"
@@ -238,7 +239,7 @@ export default function Home() {
                 style={{ animationDelay: `${i * 0.04}s`, background: '#fff' }}>
                 <span className="shrink-0 w-12 h-12 btl btl-sm grid place-items-center text-2xl"
                   style={{ background: `oklch(0.9 0.1 ${cat.hue})`, boxShadow: '2px 2px 0 0 var(--line)' }}>
-                  {cat.emoji}
+                  <Icon name={cat.icon} className="w-6 h-6" stroke={2.1} />
                 </span>
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-[17px] leading-tight truncate">{cat.name}</div>
@@ -248,7 +249,7 @@ export default function Home() {
                 </div>
                 <div className="shrink-0 w-10 h-10 btl btl-sm grid place-items-center"
                   style={{ background: 'var(--ink)', color: '#fff', boxShadow: '2px 2px 0 0 var(--accent)' }}>
-                  ▶
+                  <Icon name="play" className="w-4 h-4" stroke={2.2} />
                 </div>
               </button>
             ))}
@@ -259,13 +260,13 @@ export default function Home() {
         <div className="px-4 pb-5 grid grid-cols-2 gap-3">
           <Link to="/challenges" className="btl sh-4 p-3 text-left hover:-translate-y-0.5 transition-transform" style={{ background: '#fff' }}>
             <div className="w-10 h-10 btl btl-sm grid place-items-center mb-2 text-xl"
-              style={{ background: 'var(--accent)', boxShadow: '2px 2px 0 0 var(--line)' }}>⚔️</div>
+              style={{ background: 'var(--accent)', boxShadow: '2px 2px 0 0 var(--line)' }}><Icon name="swords" className="w-5 h-5" stroke={2.2} /></div>
             <div className="font-display text-[14px] leading-tight">Izazovi</div>
             <div className="font-mono text-[10px] font-bold opacity-60 uppercase tracking-wider mt-0.5">Igraj protiv prijatelja</div>
           </Link>
           <Link to="/leaderboard" className="btl sh-4 p-3 text-left hover:-translate-y-0.5 transition-transform" style={{ background: '#fff' }}>
             <div className="w-10 h-10 btl btl-sm grid place-items-center mb-2 text-xl"
-              style={{ background: 'var(--accent)', boxShadow: '2px 2px 0 0 var(--line)' }}>🏆</div>
+              style={{ background: 'var(--accent)', boxShadow: '2px 2px 0 0 var(--line)' }}><Icon name="chart" className="w-5 h-5" stroke={2.2} /></div>
             <div className="font-display text-[14px] leading-tight">Ljestvica</div>
             <div className="font-mono text-[10px] font-bold opacity-60 uppercase tracking-wider mt-0.5">Vidi tko je prvi</div>
           </Link>

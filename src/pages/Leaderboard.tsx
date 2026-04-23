@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
+import Icon from '../components/Icon'
 
 type Tab = 'alltime' | 'weekly' | 'daily'
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'alltime', label: 'Sve vrijeme', icon: '👑' },
-  { key: 'weekly',  label: 'Tjedan',      icon: '📅' },
-  { key: 'daily',   label: 'Danas',       icon: '✦' },
+  { key: 'alltime', label: 'Sve vrijeme', icon: 'crown' },
+  { key: 'weekly',  label: 'Tjedan',      icon: 'scroll' },
+  { key: 'daily',   label: 'Danas',       icon: 'chart' },
 ]
 
 const MEDALS = ['🥇', '🥈', '🥉']
@@ -39,7 +40,7 @@ export default function Leaderboard() {
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
       <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
         <div className="max-w-xl mx-auto flex items-center gap-3">
-          <h1 className="font-display text-[22px]">🏆 Ljestvica</h1>
+          <h1 className="font-display text-[22px] flex items-center gap-2"><Icon name="chart" className="w-5 h-5" stroke={2.2} />Ljestvica</h1>
         </div>
       </header>
 
@@ -53,7 +54,7 @@ export default function Leaderboard() {
               className={`flex-1 py-2 font-mono text-[10px] font-bold uppercase tracking-widest rounded-[10px] flex items-center justify-center gap-1 ${tab === t.key ? '' : 'opacity-50'}`}
               style={tab === t.key ? { background: 'var(--ink)', color: '#fff', border: '1.5px solid var(--line)' } : {}}
             >
-              {t.icon} {t.label}
+              <Icon name={t.icon} className="w-3 h-3" stroke={2.2} /> {t.label}
             </button>
           ))}
         </div>
@@ -83,7 +84,7 @@ export default function Leaderboard() {
           </div>
         ) : data.leaderboard.length === 0 ? (
           <div className="btl sh-3 p-8 text-center" style={{ background: '#fff' }}>
-            <div className="text-[44px] mb-2">📊</div>
+            <div className="mb-2 flex justify-center"><Icon name="chart" className="w-10 h-10" stroke={2.1} /></div>
             <div className="font-display text-[16px]">Nema podataka još.</div>
             {tab === 'daily' && <div className="font-mono text-[10px] opacity-60 mt-1">Budi prvi koji će riješiti dnevni kviz!</div>}
           </div>

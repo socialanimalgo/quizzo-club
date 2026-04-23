@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
+import Icon from '../components/Icon'
 
 type Mode = 'challenge' | 'hunter'
 
 const MODES = {
-  challenge: { emoji: '⚔️', label: 'Izazov', desc: 'Ista pitanja, pobjeđuje točniji.' },
-  hunter:    { emoji: '🎯', label: 'Hunter Mode', desc: 'Različita pitanja, ista kategorija.' },
+  challenge: { icon: 'swords', label: 'Izazov', desc: 'Ista pitanja, pobjeđuje točniji.' },
+  hunter:    { icon: 'target', label: 'Hunter Mode', desc: 'Različita pitanja, ista kategorija.' },
 }
 
 const CATEGORIES = [
-  { id: 'geography',   emoji: '🌍', name: 'Geografija',      hue: 220 },
-  { id: 'history',     emoji: '📚', name: 'Povijest',        hue: 35  },
-  { id: 'sports',      emoji: '⚽', name: 'Sport',           hue: 150 },
-  { id: 'science',     emoji: '🔬', name: 'Priroda i Znan.', hue: 280 },
-  { id: 'film_music',  emoji: '🎬', name: 'Film i Glazba',   hue: 345 },
-  { id: 'pop_culture', emoji: '🎭', name: 'Pop Kultura',     hue: 25  },
+  { id: 'geography',   icon: 'globe', name: 'Geografija',      hue: 220 },
+  { id: 'history',     icon: 'scroll', name: 'Povijest',        hue: 35  },
+  { id: 'sports',      icon: 'trophy', name: 'Sport',           hue: 150 },
+  { id: 'science',     icon: 'atom', name: 'Priroda i Znan.', hue: 280 },
+  { id: 'film_music',  icon: 'music', name: 'Film i Glazba',   hue: 345 },
+  { id: 'pop_culture', icon: 'mask', name: 'Pop Kultura',     hue: 25  },
 ]
 
 export default function Challenges() {
@@ -73,7 +74,7 @@ export default function Challenges() {
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
       <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
         <div className="max-w-xl mx-auto flex items-center gap-3">
-          <h1 className="font-display text-[22px]">⚔️ Izazovi</h1>
+          <h1 className="font-display text-[22px] flex items-center gap-2"><Icon name="swords" className="w-5 h-5" stroke={2.2} />Izazovi</h1>
         </div>
       </header>
 
@@ -81,7 +82,7 @@ export default function Challenges() {
         {/* Accept */}
         <div className="btl sh-4 p-4" style={{ background: '#fff' }}>
           <div className="flex items-center gap-2 mb-2">
-            <span className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>✉</span>
+            <span className="chip" style={{ background: 'var(--ink)', color: '#fff' }}><Icon name="mail" className="w-3 h-3" stroke={2.2} /></span>
             <div className="font-display text-[15px]">Prihvati izazov</div>
           </div>
           <div className="font-mono text-[10px] opacity-60 uppercase tracking-wider mb-2">Upiši kod prijatelja</div>
@@ -129,7 +130,7 @@ export default function Challenges() {
                   boxShadow: mode === key ? '4px 4px 0 0 var(--line)' : '2px 2px 0 0 var(--line)'
                 }}
               >
-                <div className="text-xl mb-1">{m.emoji}</div>
+                <div className="mb-1"><Icon name={m.icon} className="w-5 h-5" stroke={2.2} /></div>
                 <div className="font-display text-[13px] leading-tight">{m.label}</div>
                 <div className="font-mono text-[9px] opacity-70 mt-0.5 leading-tight">{m.desc}</div>
               </button>
@@ -148,7 +149,7 @@ export default function Challenges() {
                   boxShadow: selectedCat === cat.id ? '3px 3px 0 0 var(--line)' : '2px 2px 0 0 var(--line)'
                 }}
               >
-                <div className="text-xl">{cat.emoji}</div>
+                <div><Icon name={cat.icon} className="w-5 h-5 mx-auto" stroke={2.2} /></div>
                 <div className="font-mono text-[9px] font-bold uppercase tracking-wider truncate">{cat.name.split(' ')[0]}</div>
               </button>
             ))}
