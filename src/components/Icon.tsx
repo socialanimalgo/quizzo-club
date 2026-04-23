@@ -60,6 +60,18 @@ export default function Icon({ name, className = 'w-5 h-5', stroke = 2.3 }: Icon
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
     case 'bag':
       return <svg {...common}><path d="M6 8h12l-1 11H7L6 8z" /><path d="M9 8V7a3 3 0 0 1 6 0v1" /></svg>
+    case 'mic':
+      return <svg {...common}><rect x="9" y="2" width="6" height="12" rx="3" /><path d="M5 10a7 7 0 0 0 14 0M12 19v3M9 22h6" /></svg>
+    case 'star':
+      return <svg {...common}><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+    case 'briefcase':
+      return <svg {...common}><rect x="2" y="7" width="20" height="14" rx="2" /><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2M12 12v.01M8 12h8" /></svg>
+    case 'coffee':
+      return <svg {...common}><path d="M17 8h1a4 4 0 0 1 0 8h-1M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V8zM6 2v3M10 2v3M14 2v3" /></svg>
+    case 'sword':
+      return <svg {...common}><path d="M14.5 17.5 3 6V3h3l11.5 11.5M13 19l2-2M15 5l4-4h2v2l-4 4M3 21l4-4" /></svg>
+    case 'wand':
+      return <svg {...common}><path d="m15 4-1 1M4 15l-1 1M9 4l.5 1.5M4 9l1.5.5M20 9l-1.5.5M15 20l-.5-1.5M9 20l.5-1.5M20 15l-1.5-.5M12 12 3 21" /><path d="m12 12 4-9 1 4 4 1-9 4z" /></svg>
     default:
       return null
   }

@@ -6,12 +6,18 @@ import Icon from '../components/Icon'
 import { useWallet } from '../context/WalletContext'
 
 const CATEGORIES = [
-  { id: 'geography',   icon: 'globe', name: 'Geografija',      hue: 220, count: 72 },
-  { id: 'history',     icon: 'scroll', name: 'Povijest',        hue: 35,  count: 68 },
-  { id: 'sports',      icon: 'trophy', name: 'Sport',           hue: 150, count: 64 },
-  { id: 'science',     icon: 'atom', name: 'Priroda i Znan.', hue: 280, count: 70 },
-  { id: 'film_music',  icon: 'music', name: 'Film i Glazba',   hue: 345, count: 66 },
-  { id: 'pop_culture', icon: 'mask', name: 'Pop Kultura',     hue: 25,  count: 60 },
+  { id: 'geography',       icon: 'globe',   name: 'Geografija',      hue: 220, count: 72 },
+  { id: 'history',         icon: 'scroll',  name: 'Povijest',        hue: 35,  count: 68 },
+  { id: 'sports',          icon: 'trophy',  name: 'Sport',           hue: 150, count: 64 },
+  { id: 'science',         icon: 'atom',    name: 'Priroda i Znan.', hue: 280, count: 70 },
+  { id: 'film_music',      icon: 'music',   name: 'Film i Glazba',   hue: 345, count: 66 },
+  { id: 'pop_culture',     icon: 'mask',    name: 'Pop Kultura',     hue: 25,  count: 60 },
+  { id: 'beliebers',       icon: 'mic',     name: 'Beliebers',       hue: 270, count: 151 },
+  { id: 'zara_larsson',    icon: 'star',    name: 'Zara Larsson',    hue: 320, count: 40 },
+  { id: 'the_office',      icon: 'briefcase', name: 'The Office',    hue: 200, count: 51 },
+  { id: 'friends',         icon: 'coffee',  name: 'Friends',         hue: 40,  count: 51 },
+  { id: 'game_of_thrones', icon: 'sword',   name: 'Game of Thrones', hue: 0,   count: 51 },
+  { id: 'harry_potter',    icon: 'wand',    name: 'Harry Potter',    hue: 130, count: 53 },
 ]
 
 const WELCOME_TILES = [
@@ -98,7 +104,7 @@ export default function Home() {
         <div className="flex-1 px-5 pt-6 pb-5">
           <div className="space-y-3 mb-6">
             {[
-              { n: '01', label: '6 kategorija, 360+ pitanja' },
+              { n: '01', label: '12 kategorija, 750+ pitanja' },
               { n: '02', label: 'Izazovi protiv prijatelja' },
               { n: '03', label: 'Ljestvica cijele Hrvatske' },
             ].map((b, i) => (
@@ -241,7 +247,7 @@ export default function Home() {
         <div className="px-4 pb-3">
           <div className="flex items-baseline justify-between mb-2">
             <h2 className="font-mono text-[12px] font-bold uppercase tracking-widest">Odaberi kategoriju</h2>
-            <span className="font-mono text-[10px] font-bold opacity-60">06 CAT.</span>
+            <span className="font-mono text-[10px] font-bold opacity-60">12 CAT.</span>
           </div>
           <div className="flex flex-col gap-2">
             {CATEGORIES.map((cat, i) => (
