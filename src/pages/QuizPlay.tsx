@@ -37,6 +37,32 @@ const CATEGORY_LABELS: Record<string, string> = {
   daily: 'DNEVNI KVIZ',
 }
 
+function normalizeQuestions(input: any[] | undefined): Question[] {
+  if (!Array.isArray(input)) return []
+
+  return input
+    .filter(Boolean)
+    .map((question: any) => {
+      const options = Array.isArray(question?.options)
+        ? question.options
+            .map((option: any) => {
+              if (typeof option === 'string') return { text: option, correct: false }
+              if (option && typeof option.text === 'string') return { text: option.text, correct: Boolean(option.correct) }
+              return null
+            })
+            .filter(Boolean)
+        : []
+
+      if (!question?.id || typeof question.question !== 'string' || options.length < 2) return null
+      return {
+        id: question.id,
+        question: question.question,
+        options: options as { text: string; correct: boolean }[],
+      }
+    })
+    .filter(Boolean) as Question[]
+}
+
 export default function QuizPlay() {
   const { categoryId } = useParams<{ categoryId: string }>()
   const navigate = useNavigate()
@@ -63,9 +89,15 @@ export default function QuizPlay() {
 
   useEffect(() => {
     if (externalSession) {
+      const normalized = normalizeQuestions(externalSession.questions)
+      if (!externalSession.session_id || normalized.length === 0) {
+        setError('Sesija dnevnog kviza nije ispravna')
+        setLoading(false)
+        return
+      }
       setQuiz({
         sessionId: externalSession.session_id,
-        questions: externalSession.questions,
+        questions: normalized,
         currentIndex: 0,
         answers: [],
         score: 0,
@@ -78,9 +110,13 @@ export default function QuizPlay() {
 
     api.quiz.start(categoryId)
       .then(data => {
+        const normalized = normalizeQuestions(data.questions)
+        if (normalized.length === 0) {
+          throw new Error('Nema pitanja u ovoj sesiji')
+        }
         setQuiz({
           sessionId: data.session_id,
-          questions: data.questions,
+          questions: normalized,
           currentIndex: 0,
           answers: [],
           score: 0,

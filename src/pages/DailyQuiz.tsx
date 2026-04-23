@@ -10,6 +10,8 @@ function formatCountdown(totalSeconds: number) {
   return [hours, minutes, seconds].map(v => String(v).padStart(2, '0')).join(':')
 }
 
+const DAILY_QUESTION_COUNT = 30
+
 export default function DailyQuiz() {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
@@ -143,7 +145,7 @@ export default function DailyQuiz() {
           <div className="btl sh-4 p-4 mb-4" style={{ background: '#fff' }}>
             <div className="flex items-center justify-between mb-3">
               <div className="font-mono text-[11px] font-bold uppercase tracking-widest opacity-60">// Pravila</div>
-              <span className="font-mono text-[11px] font-bold tabular">10 Q · 20s</span>
+              <span className="font-mono text-[11px] font-bold tabular">{DAILY_QUESTION_COUNT} Q · 20s</span>
             </div>
             <div className="flex flex-col gap-2">
               {[
@@ -169,7 +171,7 @@ export default function DailyQuiz() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="btl sh-2 p-3" style={{ background: '#dcfce7' }}>
                     <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60">Točni</div>
-                    <div className="font-display text-[28px] leading-none mt-1">{completion?.correct_count ?? 0}/10</div>
+                    <div className="font-display text-[28px] leading-none mt-1">{completion?.correct_count ?? 0}/{DAILY_QUESTION_COUNT}</div>
                   </div>
                   <div className="btl sh-2 p-3" style={{ background: '#fff7cc' }}>
                     <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60">Score</div>

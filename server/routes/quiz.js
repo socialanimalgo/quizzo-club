@@ -3,17 +3,34 @@ const router = express.Router();
 const { authMiddleware, optionalAuth } = require('../middleware/auth');
 const { maybeNotifyLeaderboard, maybeNotifyStreak } = require('../lib/notifications');
 
+const DAILY_QUESTION_COUNT = 30;
+
 async function getOrCreateDailyQuiz(pool) {
   const { rows: dRows } = await pool.query(
     'SELECT * FROM daily_quizzes WHERE quiz_date = CURRENT_DATE'
   );
 
-  if (dRows.length) return dRows[0];
+  if (dRows.length && Array.isArray(dRows[0].question_ids) && dRows[0].question_ids.length === DAILY_QUESTION_COUNT) {
+    return dRows[0];
+  }
 
   const { rows: qRows } = await pool.query(
-    `SELECT id FROM questions WHERE active = true ORDER BY RANDOM() LIMIT 10`
+    `SELECT id FROM questions WHERE active = true ORDER BY RANDOM() LIMIT $1`,
+    [DAILY_QUESTION_COUNT]
   );
   const ids = qRows.map(r => r.id);
+
+  if (ids.length < DAILY_QUESTION_COUNT) {
+    throw new Error('Not enough questions for daily quiz');
+  }
+
+  if (dRows.length) {
+    const { rows: updated } = await pool.query(
+      'UPDATE daily_quizzes SET question_ids = $1 WHERE quiz_date = CURRENT_DATE RETURNING *',
+      [JSON.stringify(ids)]
+    );
+    return updated[0];
+  }
 
   const { rows: inserted } = await pool.query(
     'INSERT INTO daily_quizzes (quiz_date, question_ids) VALUES (CURRENT_DATE, $1) RETURNING *',
@@ -266,9 +283,9 @@ router.post('/daily/start', authMiddleware, async (req, res) => {
     if (!session) {
       const { rows } = await pool.query(
         `INSERT INTO quiz_sessions (user_id, category_id, session_type, question_ids, total_questions)
-         VALUES ($1, NULL, 'daily', $2, 10)
+         VALUES ($1, NULL, 'daily', $2, $3)
          RETURNING *`,
-        [userId, JSON.stringify(daily.question_ids)]
+        [userId, JSON.stringify(daily.question_ids), daily.question_ids.length]
       );
       session = rows[0];
     }
@@ -283,7 +300,7 @@ router.post('/daily/start', authMiddleware, async (req, res) => {
     });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(err.message === 'Not enough questions for daily quiz' ? 400 : 500).json({ error: err.message === 'Not enough questions for daily quiz' ? err.message : 'Server error' });
   }
 });
 

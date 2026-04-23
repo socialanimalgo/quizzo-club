@@ -70,6 +70,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/quiz/:categoryId" element={<QuizPlay />} />
           <Route path="/quiz/play" element={<QuizPlay />} />
+          <Route path="/quiz/daily-play" element={<QuizPlay />} />
           <Route path="/results" element={<QuizResults />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/challenges" element={<Challenges />} />
