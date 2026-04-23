@@ -1,5 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
+import { useWallet } from '../context/WalletContext'
 
 function HomeIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px]"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
@@ -13,8 +14,11 @@ function SwordsIcon() {
 function UserIcon() {
   return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px]"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
 }
+function ShieldIcon() {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="w-[22px] h-[22px]"><path d="M12 3l7 3v6c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+}
 
-const ITEMS = [
+const BASE_ITEMS = [
   { id: 'home',        path: '/',            label: 'POČETNA',   Icon: HomeIcon },
   { id: 'leaderboard', path: '/leaderboard', label: 'STATISTIKA', Icon: ChartIcon },
   { id: 'challenges',  path: '/challenges',  label: 'VS',         Icon: SwordsIcon },
@@ -25,6 +29,8 @@ export default function BottomNav() {
   const location = useLocation()
   const navigate = useNavigate()
   const { unread } = useNotificationSummary()
+  const { isAdmin } = useWallet()
+  const items = isAdmin ? [...BASE_ITEMS, { id: 'admin', path: '/admin', label: 'ADMIN', Icon: ShieldIcon }] : BASE_ITEMS
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 px-3 pt-3 pb-[calc(16px+env(safe-area-inset-bottom))] pointer-events-none">
@@ -39,7 +45,7 @@ export default function BottomNav() {
           }}
         >
           <div className="flex items-end justify-between">
-            {ITEMS.slice(0, 2).map(it => {
+            {items.slice(0, 2).map(it => {
               const active = location.pathname === it.path
               return (
                 <Link key={it.id} to={it.path} className="flex flex-col items-center gap-0.5 flex-1 py-1">
@@ -65,7 +71,7 @@ export default function BottomNav() {
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 ml-0.5"><polygon points="5 3 19 12 5 21 5 3" /></svg>
             </button>
 
-            {ITEMS.slice(2).map(it => {
+            {items.slice(2).map(it => {
               const active = location.pathname === it.path
               return (
                 <Link key={it.id} to={it.path} className="flex flex-col items-center gap-0.5 flex-1 py-1">

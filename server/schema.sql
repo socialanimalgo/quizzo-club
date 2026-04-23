@@ -33,8 +33,18 @@ CREATE TABLE IF NOT EXISTS users (
   google_id TEXT UNIQUE,
   avatar_url TEXT,
   is_admin BOOLEAN DEFAULT false,
+  is_blocked BOOLEAN DEFAULT false,
+  coins INTEGER DEFAULT 0,
+  gems INTEGER DEFAULT 0,
+  deleted_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS coins INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS gems INTEGER DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_daily_reward_date DATE;
 
 -- Analytics: page visits
 CREATE TABLE IF NOT EXISTS page_visits (
@@ -91,6 +101,7 @@ CREATE TABLE IF NOT EXISTS quiz_sessions (
   session_type TEXT DEFAULT 'solo',
   question_ids JSONB,
   answers JSONB DEFAULT '[]',
+  powerup_state JSONB DEFAULT '{}'::jsonb,
   score INTEGER DEFAULT 0,
   total_questions INTEGER DEFAULT 10,
   correct_count INTEGER DEFAULT 0,
@@ -122,6 +133,56 @@ ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS quiz_date DATE;
 ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS session_id UUID REFERENCES quiz_sessions(id);
 ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS score INTEGER DEFAULT 0;
 ALTER TABLE daily_completions ADD COLUMN IF NOT EXISTS correct_count INTEGER DEFAULT 0;
+
+CREATE TABLE IF NOT EXISTS user_powerups (
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  powerup_id TEXT NOT NULL,
+  qty INTEGER NOT NULL DEFAULT 0 CHECK (qty >= 0),
+  PRIMARY KEY (user_id, powerup_id)
+);
+
+CREATE TABLE IF NOT EXISTS powerup_purchases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  powerup_id TEXT NOT NULL,
+  qty INTEGER NOT NULL,
+  currency TEXT NOT NULL,
+  cost_coins INTEGER,
+  cost_gems INTEGER,
+  bundle_id TEXT,
+  revenue_eur NUMERIC(10,2),
+  source TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS gem_purchases (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  pack_id TEXT NOT NULL,
+  gems_amount INTEGER NOT NULL,
+  price_eur NUMERIC(10,2) NOT NULL,
+  stripe_payment_intent TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS powerup_uses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  session_id UUID REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+  question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+  powerup_id TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS admin_actions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  target_user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  action TEXT NOT NULL,
+  payload JSONB,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
 -- Challenges / Hunter Mode
 CREATE TABLE IF NOT EXISTS challenges (
@@ -205,6 +266,7 @@ ALTER TABLE questions ADD COLUMN IF NOT EXISTS active BOOLEAN DEFAULT true;
 ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS session_type TEXT DEFAULT 'solo';
 ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS question_ids JSONB;
 ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS answers JSONB DEFAULT '[]';
+ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS powerup_state JSONB DEFAULT '{}'::jsonb;
 ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS correct_count INTEGER DEFAULT 0;
 ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 

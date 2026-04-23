@@ -58,6 +58,8 @@ export default function Icon({ name, className = 'w-5 h-5', stroke = 2.3 }: Icon
       return <svg {...common}><path d="m5 12 5 5L19 8" /></svg>
     case 'clock':
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg>
+    case 'bag':
+      return <svg {...common}><path d="M6 8h12l-1 11H7L6 8z" /><path d="M9 8V7a3 3 0 0 1 6 0v1" /></svg>
     default:
       return null
   }

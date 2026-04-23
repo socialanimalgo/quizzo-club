@@ -1,7 +1,17 @@
 const express = require('express');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
+const { createNotification } = require('../lib/notifications');
+const { grantPowerup, getWallet } = require('../lib/powerups');
 
 const router = express.Router();
+
+async function logAdminAction(pool, adminId, targetUserId, action, payload = {}) {
+  await pool.query(
+    `INSERT INTO admin_actions (admin_id, target_user_id, action, payload)
+     VALUES ($1, $2, $3, $4)`,
+    [adminId, targetUserId, action, JSON.stringify(payload)]
+  );
+}
 
 // GET /api/admin/stats
 router.get('/stats', authMiddleware, adminMiddleware, async (req, res) => {
@@ -91,6 +101,250 @@ router.get('/questions', authMiddleware, adminMiddleware, async (req, res) => {
     res.json({ questions: rows, total: parseInt(countRows[0].count) });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(Number(req.query.limit) || 50, 100);
+    const offset = Number(req.query.offset) || 0;
+    const search = q ? `%${q}%` : null;
+
+    const where = [
+      'u.deleted_at IS NULL',
+      q ? '(u.first_name ILIKE $1 OR u.last_name ILIKE $1 OR u.email ILIKE $1)' : null,
+    ].filter(Boolean).join(' AND ');
+
+    const params = q ? [search, limit, offset] : [limit, offset];
+    const limitIndex = q ? 2 : 1;
+    const offsetIndex = q ? 3 : 2;
+
+    const { rows } = await pool.query(
+      `SELECT u.id, u.first_name, u.last_name, u.email, u.avatar_url, u.is_admin, u.is_blocked, u.created_at,
+              us.xp, us.current_streak, us.total_quizzes,
+              s.status AS subscription_status, s.plan AS subscription_plan,
+              pv.last_seen_at
+       FROM users u
+       LEFT JOIN user_stats us ON us.user_id = u.id
+       LEFT JOIN subscriptions s ON s.user_id = u.id
+       LEFT JOIN (
+         SELECT user_id, MAX(visited_at) AS last_seen_at
+         FROM page_visits
+         GROUP BY user_id
+       ) pv ON pv.user_id = u.id
+       WHERE ${where}
+       ORDER BY pv.last_seen_at DESC NULLS LAST, u.created_at DESC
+       LIMIT $${limitIndex} OFFSET $${offsetIndex}`,
+      params
+    );
+
+    const { rows: countRows } = await pool.query(
+      `SELECT COUNT(*)::int AS total
+       FROM users u
+       WHERE ${where}`,
+      q ? [search] : []
+    );
+
+    res.json({ users: rows, total: countRows[0].total });
+  } catch (err) {
+    console.error('Admin users error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/users/:id/block', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { rows } = await pool.query(
+      'UPDATE users SET is_blocked = true WHERE id = $1 AND deleted_at IS NULL RETURNING *',
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    await logAdminAction(pool, req.userId, req.params.id, 'block');
+    res.json({ user: rows[0] });
+  } catch (err) {
+    console.error('Block user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/users/:id/unblock', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { rows } = await pool.query(
+      'UPDATE users SET is_blocked = false WHERE id = $1 AND deleted_at IS NULL RETURNING *',
+      [req.params.id]
+    );
+    if (!rows.length) return res.status(404).json({ error: 'User not found' });
+    await logAdminAction(pool, req.userId, req.params.id, 'unblock');
+    res.json({ user: rows[0] });
+  } catch (err) {
+    console.error('Unblock user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.delete('/users/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    await pool.query(
+      `UPDATE users
+       SET deleted_at = NOW(),
+           email = CONCAT('deleted+', id::text, '@quizzo.invalid'),
+           first_name = 'Deleted',
+           last_name = 'User',
+           avatar_url = NULL,
+           password_hash = NULL,
+           google_id = NULL,
+           is_blocked = true
+       WHERE id = $1 AND deleted_at IS NULL`,
+      [req.params.id]
+    );
+    await logAdminAction(pool, req.userId, req.params.id, 'delete');
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/users/:id/gift', authMiddleware, adminMiddleware, async (req, res) => {
+  const { kind, powerup_id, qty = 1 } = req.body || {};
+  const count = Number(qty) || 1;
+  const pool = req.app.get('pool');
+  try {
+    if (!['powerup', 'xp', 'pro'].includes(kind)) {
+      return res.status(400).json({ error: 'Invalid gift kind' });
+    }
+
+    if (kind === 'powerup') {
+      await grantPowerup(pool, req.params.id, powerup_id, count, 'admin_gift');
+      await createNotification(pool, {
+        userId: req.params.id,
+        type: 'admin_gift',
+        title: 'Primio si powerup',
+        body: `Admin ti je poslao ${count}× ${powerup_id}`,
+        data: { kind, powerup_id, qty: count },
+      });
+    }
+
+    if (kind === 'xp') {
+      await pool.query(
+        `INSERT INTO user_stats (user_id, xp)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET xp = user_stats.xp + $2, updated_at = NOW()`,
+        [req.params.id, count * 100]
+      );
+      await createNotification(pool, {
+        userId: req.params.id,
+        type: 'admin_gift',
+        title: 'Primio si XP',
+        body: `Admin ti je dodijelio ${count * 100} XP`,
+        data: { kind, xp: count * 100 },
+      });
+    }
+
+    if (kind === 'pro') {
+      await pool.query(
+        `INSERT INTO subscriptions (user_id, status, plan, current_period_end, updated_at)
+         VALUES ($1, 'active', 'gifted', NOW() + ($2::text || ' days')::interval, NOW())
+         ON CONFLICT (user_id) DO UPDATE SET
+           status = 'active',
+           plan = COALESCE(subscriptions.plan, 'gifted'),
+           current_period_end = GREATEST(COALESCE(subscriptions.current_period_end, NOW()), NOW()) + ($2::text || ' days')::interval,
+           updated_at = NOW()`,
+        [req.params.id, count]
+      );
+      await createNotification(pool, {
+        userId: req.params.id,
+        type: 'admin_gift',
+        title: 'Primio si Pro',
+        body: `Admin ti je dodijelio ${count} dana Pro pristupa`,
+        data: { kind, days: count },
+      });
+    }
+
+    await logAdminAction(pool, req.userId, req.params.id, kind === 'powerup' ? 'gift_powerup' : kind === 'xp' ? 'gift_xp' : 'gift_pro', req.body || {});
+    const wallet = await getWallet(pool, req.params.id);
+    const { rows: userRows } = await pool.query('SELECT * FROM users WHERE id = $1', [req.params.id]);
+    res.json({ user: userRows[0], wallet });
+  } catch (err) {
+    console.error('Gift user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/users/:id/notify', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const message = String(req.body?.message || '').trim();
+    if (!message) return res.status(400).json({ error: 'Message required' });
+    const notification = await createNotification(pool, {
+      userId: req.params.id,
+      type: 'admin_message',
+      title: 'Poruka od admina',
+      body: message,
+      data: {},
+    });
+    await logAdminAction(pool, req.userId, req.params.id, 'notify', { message });
+    res.json({ notification });
+  } catch (err) {
+    console.error('Notify user error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/categories', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { rows } = await pool.query(
+      `WITH plays AS (
+         SELECT category_id, COUNT(*)::int AS plays
+         FROM quiz_sessions
+         WHERE completed = true AND category_id IS NOT NULL
+         GROUP BY category_id
+       ),
+       totals AS (
+         SELECT COALESCE(SUM(plays), 0)::float AS total FROM plays
+       )
+       SELECT c.id, c.name, c.emoji, COALESCE(p.plays, 0) AS plays,
+              CASE WHEN t.total > 0 THEN ROUND((COALESCE(p.plays, 0) / t.total) * 100) ELSE 0 END AS pct
+       FROM categories c
+       LEFT JOIN plays p ON p.category_id = c.id
+       CROSS JOIN totals t
+       ORDER BY plays DESC, c.name ASC`
+    );
+    res.json({ categories: rows });
+  } catch (err) {
+    console.error('Admin categories error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/powerups', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { rows } = await pool.query(
+      `SELECT powerup_id AS id,
+              COALESCE(SUM(qty), 0)::int AS total,
+              COALESCE(SUM(qty) FILTER (WHERE created_at >= CURRENT_DATE), 0)::int AS today,
+              COALESCE(SUM(revenue_eur), 0)::float AS revenue_eur
+       FROM powerup_purchases
+       WHERE powerup_id != 'bundle'
+       GROUP BY powerup_id
+       ORDER BY total DESC`
+    );
+    const totals = rows.reduce((acc, row) => ({
+      units: acc.units + Number(row.total || 0),
+      revenue_eur: acc.revenue_eur + Number(row.revenue_eur || 0),
+    }), { units: 0, revenue_eur: 0 });
+
+    res.json({ totals, per_type: rows });
+  } catch (err) {
+    console.error('Admin powerups error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });

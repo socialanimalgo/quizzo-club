@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware, optionalAuth } = require('../middleware/auth');
 const { maybeNotifyLeaderboard, maybeNotifyStreak } = require('../lib/notifications');
+const { consumePowerup, getWallet, grantPowerup, grantPowerupSet } = require('../lib/powerups');
+
+const STREAK_REWARDS = {
+  3: { fifty: 1 },
+  7: { fifty: 2, freeze: 1 },
+  14: { fifty: 2, freeze: 1, doublexp: 1 },
+  30: { fifty: 3, freeze: 2, doublexp: 2, reveal: 1 },
+};
 
 const DAILY_QUESTION_COUNT = 30;
 
@@ -87,7 +95,7 @@ router.post('/start', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const { category_id, count = 10 } = req.body;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     if (!category_id) return res.status(400).json({ error: 'category_id required' });
 
@@ -127,12 +135,15 @@ router.post('/start', authMiddleware, async (req, res) => {
 
 // POST /api/quiz/answer — submit answer for current question
 router.post('/answer', authMiddleware, async (req, res) => {
+  const pool = req.app.get('pool');
+  const client = await pool.connect();
   try {
-    const pool = req.app.get('pool');
-    const { session_id, question_id, answer_index, time_ms } = req.body;
-    const userId = req.user.userId;
+    const { session_id, question_id, answer_index, time_ms, powerup_id } = req.body;
+    const userId = req.userId;
 
-    const { rows } = await pool.query(
+    await client.query('BEGIN');
+
+    const { rows } = await client.query(
       'SELECT * FROM quiz_sessions WHERE id = $1 AND user_id = $2 AND completed = false',
       [session_id, userId]
     );
@@ -142,28 +153,75 @@ router.post('/answer', authMiddleware, async (req, res) => {
     const session = rows[0];
 
     // Get correct answer
-    const { rows: qRows } = await pool.query(
+    const { rows: qRows } = await client.query(
       'SELECT correct_index FROM questions WHERE id = $1',
       [question_id]
     );
     if (!qRows.length) return res.status(404).json({ error: 'Question not found' });
 
-    const correct = qRows[0].correct_index === answer_index;
-    const points = correct ? Math.max(100 - Math.floor((time_ms || 10000) / 100), 10) : 0;
+    let effectiveAnswerIndex = answer_index;
+    const powerupState = session.powerup_state || {};
+
+    if (powerup_id) {
+      try {
+        await consumePowerup(client, userId, powerup_id);
+      } catch (err) {
+        await client.query('ROLLBACK');
+        if (err.code === 'POWERUP_UNAVAILABLE') {
+          return res.status(409).json({ error: 'Nemaš taj powerup' });
+        }
+        throw err;
+      }
+
+      if (powerup_id === 'freeze' || powerup_id === 'reveal') {
+        effectiveAnswerIndex = qRows[0].correct_index;
+      }
+      if (powerup_id === 'doublexp') {
+        powerupState.doublexp_active = true;
+      }
+
+      await client.query(
+        `INSERT INTO powerup_uses (user_id, session_id, question_id, powerup_id)
+         VALUES ($1, $2, $3, $4)`,
+        [userId, session_id, question_id, powerup_id]
+      );
+    }
+
+    if ((powerup_id === 'fifty' || powerup_id === 'doublexp') && answer_index < 0) {
+      await client.query(
+        `UPDATE quiz_sessions SET powerup_state = $1 WHERE id = $2`,
+        [JSON.stringify(powerupState), session_id]
+      );
+      await client.query('COMMIT');
+      const wallet = await getWallet(pool, userId);
+      return res.json({ correct: false, correct_index: qRows[0].correct_index, points: 0, wallet });
+    }
+
+    const correct = qRows[0].correct_index === effectiveAnswerIndex;
+    let points = correct ? Math.max(100 - Math.floor((time_ms || 10000) / 100), 10) : 0;
+    if (correct && powerupState.doublexp_active) {
+      points *= 2;
+      powerupState.doublexp_active = false;
+    }
 
     const answers = session.answers || [];
-    answers.push({ question_id, answer_index, correct, time_ms: time_ms || 0, points });
+    answers.push({ question_id, answer_index: effectiveAnswerIndex, correct, time_ms: time_ms || 0, points, powerup_id: powerup_id || null });
 
-    await pool.query(
-      `UPDATE quiz_sessions SET answers = $1, score = score + $2,
-       correct_count = correct_count + $3 WHERE id = $4`,
-      [JSON.stringify(answers), points, correct ? 1 : 0, session_id]
+    await client.query(
+      `UPDATE quiz_sessions SET answers = $1, powerup_state = $2, score = score + $3,
+       correct_count = correct_count + $4 WHERE id = $5`,
+      [JSON.stringify(answers), JSON.stringify(powerupState), points, correct ? 1 : 0, session_id]
     );
 
-    res.json({ correct, correct_index: qRows[0].correct_index, points });
+    await client.query('COMMIT');
+    const wallet = await getWallet(pool, userId);
+    res.json({ correct, correct_index: qRows[0].correct_index, points, wallet });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error(err);
     res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 
@@ -172,7 +230,7 @@ router.post('/finish', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const { session_id } = req.body;
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     const { rows } = await pool.query(
       `UPDATE quiz_sessions SET completed = true, completed_at = NOW()
@@ -184,6 +242,11 @@ router.post('/finish', authMiddleware, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: 'Session not found' });
 
     const session = rows[0];
+    const { rows: beforeStatsRows } = await pool.query(
+      'SELECT xp, current_streak FROM user_stats WHERE user_id = $1',
+      [userId]
+    );
+    const prevXp = Number(beforeStatsRows[0]?.xp) || 0;
     const xpEarned = Math.floor(session.score / 10) + (session.correct_count * 5);
 
     // Update user stats
@@ -211,11 +274,25 @@ router.post('/finish', authMiddleware, async (req, res) => {
     );
 
     const { rows: statRows } = await pool.query(
-      'SELECT current_streak FROM user_stats WHERE user_id = $1',
+      'SELECT xp, current_streak FROM user_stats WHERE user_id = $1',
       [userId]
     );
-    await maybeNotifyStreak(pool, userId, statRows[0]?.current_streak || 0);
+    const currentStreak = statRows[0]?.current_streak || 0;
+    const nextXp = Number(statRows[0]?.xp) || 0;
+    await maybeNotifyStreak(pool, userId, currentStreak);
     await maybeNotifyLeaderboard(pool, userId);
+
+    if (STREAK_REWARDS[currentStreak]) {
+      await grantPowerupSet(pool, userId, STREAK_REWARDS[currentStreak], 'streak');
+    }
+
+    const prevLevel = Math.floor(prevXp / 500);
+    const nextLevel = Math.floor(nextXp / 500);
+    if (nextLevel > prevLevel) {
+      for (let level = prevLevel + 1; level <= nextLevel; level += 1) {
+        await grantPowerupSet(pool, userId, { fifty: 1, freeze: 1, doublexp: 1, reveal: 1 }, 'levelup');
+      }
+    }
 
     // If this was a daily quiz session type, record daily completion
     if (session.session_type === 'daily') {
@@ -225,6 +302,7 @@ router.post('/finish', authMiddleware, async (req, res) => {
          ON CONFLICT (user_id, quiz_date) DO NOTHING`,
         [userId, session_id, session.score, session.correct_count]
       );
+      await grantPowerup(pool, userId, 'reveal', 1, 'daily_challenge');
     }
 
     res.json({
@@ -272,7 +350,7 @@ router.get('/daily', optionalAuth, async (req, res) => {
 router.post('/daily/start', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.get('pool');
-    const userId = req.user.userId;
+    const userId = req.userId;
     const daily = await getOrCreateDailyQuiz(pool);
 
     const { rows: completionRows } = await pool.query(
@@ -346,7 +424,7 @@ router.post('/daily/start', authMiddleware, async (req, res) => {
 router.get('/session/:id', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.get('pool');
-    const userId = req.user.userId;
+    const userId = req.userId;
 
     const { rows } = await pool.query(
       'SELECT * FROM quiz_sessions WHERE id = $1 AND user_id = $2',

@@ -4,6 +4,7 @@ const jwt = require('jsonwebtoken');
 const https = require('https');
 const { authMiddleware } = require('../middleware/auth');
 const { sendWelcomeEmail, sendNewUserAlert } = require('../lib/email');
+const { getWallet, grantPowerup } = require('../lib/powerups');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
@@ -24,7 +25,11 @@ function sanitizeUser(user) {
     first_name: user.first_name,
     last_name: user.last_name,
     avatar_url: user.avatar_url || null,
-    is_admin: user.email === process.env.ADMIN_EMAIL,
+    is_admin: Boolean(user.is_admin || user.email === process.env.ADMIN_EMAIL),
+    is_blocked: Boolean(user.is_blocked),
+    coins: Number(user.coins) || 0,
+    gems: Number(user.gems) || 0,
+    inventory: user.inventory || null,
   };
 }
 
@@ -105,6 +110,7 @@ router.post('/login', async (req, res) => {
     if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid email or password' });
 
     const user = result.rows[0];
+    if (user.is_blocked) return res.status(403).json({ error: 'Account blocked' });
     if (!user.password_hash) return res.status(401).json({ error: 'This account uses Google sign-in' });
 
     const valid = await bcrypt.compare(password, user.password_hash);
@@ -120,9 +126,35 @@ router.post('/login', async (req, res) => {
 router.get('/me', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.get('pool');
-    const result = await pool.query('SELECT * FROM users WHERE id = $1', [req.userId]);
-    if (result.rows.length === 0) return res.status(404).json({ error: 'User not found' });
-    res.json({ user: sanitizeUser(result.rows[0]) });
+    const client = await pool.connect();
+    let user;
+    try {
+      await client.query('BEGIN');
+      const result = await client.query('SELECT * FROM users WHERE id = $1 FOR UPDATE', [req.userId]);
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'User not found' });
+      }
+      user = result.rows[0];
+
+      if (!user.last_daily_reward_date || String(user.last_daily_reward_date) !== new Date().toISOString().slice(0, 10)) {
+        await client.query(
+          'UPDATE users SET last_daily_reward_date = CURRENT_DATE WHERE id = $1',
+          [req.userId]
+        );
+        await grantPowerup(client, req.userId, 'fifty', 1, 'daily_login');
+        user.last_daily_reward_date = new Date().toISOString().slice(0, 10);
+      }
+
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    const wallet = await getWallet(pool, req.userId);
+    res.json({ user: sanitizeUser({ ...user, inventory: wallet.inv, coins: wallet.coins, gems: wallet.gems }) });
   } catch (err) {
     console.error('Get me error:', err);
     res.status(500).json({ error: 'Internal server error' });
@@ -183,12 +215,14 @@ router.get('/google/callback', async (req, res) => {
     const byGoogleId = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
     if (byGoogleId.rows.length > 0) {
       user = byGoogleId.rows[0];
+      if (user.is_blocked) return res.redirect(`${base}/signin?error=blocked`);
       await pool.query('UPDATE users SET avatar_url = $1 WHERE id = $2', [profile.picture, user.id]);
       user.avatar_url = profile.picture;
     } else {
       const byEmail = await pool.query('SELECT * FROM users WHERE email = $1', [profile.email]);
       if (byEmail.rows.length > 0) {
         user = byEmail.rows[0];
+        if (user.is_blocked) return res.redirect(`${base}/signin?error=blocked`);
         await pool.query('UPDATE users SET google_id = $1, avatar_url = $2 WHERE id = $3',
           [profile.id, profile.picture, user.id]);
         user.google_id = profile.id;

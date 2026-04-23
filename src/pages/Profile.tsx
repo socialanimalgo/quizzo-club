@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
 import { useFriendsSummary } from '../hooks/useFriendsSummary'
+import { useWallet } from '../context/WalletContext'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -12,6 +13,7 @@ export default function Profile() {
   const [countryCode, setCountryCode] = useState('HR')
   const { unread } = useNotificationSummary()
   const { friendCount, incomingRequests } = useFriendsSummary()
+  const { wallet } = useWallet()
 
   useEffect(() => {
     api.auth.getUser().then(u => {
@@ -76,6 +78,14 @@ export default function Profile() {
       icon: 'crown',
       tone: '#fde68a',
       href: '/subscribe',
+    },
+    {
+      id: 'shop',
+      label: 'Shop',
+      value: `🪙 ${wallet.coins} · 💎 ${wallet.gems}`,
+      icon: 'bag',
+      tone: '#fff',
+      href: '/shop',
     },
   ]
 

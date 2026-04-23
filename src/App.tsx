@@ -14,17 +14,19 @@ import Profile from './pages/Profile'
 import Friends from './pages/Friends'
 import History from './pages/History'
 import Notifications from './pages/Notifications'
+import Shop from './pages/Shop'
 import { api } from './lib/api'
 import LoadingScreen from './components/LoadingScreen'
 import PageTransition from './components/PageTransition'
 import BottomNav from './components/BottomNav'
+import { WalletProvider, useWallet } from './context/WalletContext'
 
-export default function App() {
+function AppShell() {
   const location = useLocation()
   const previousPath = useRef(location.pathname)
   const [booting, setBooting] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
-  const [hasUser, setHasUser] = useState(false)
+  const { user } = useWallet()
 
   useEffect(() => {
     api.analytics.visit()
@@ -45,23 +47,7 @@ export default function App() {
     setTransitioning(true)
   }, [location.pathname])
 
-  useEffect(() => {
-    let cancelled = false
-
-    api.auth.getUser()
-      .then(user => {
-        if (!cancelled) setHasUser(Boolean(user))
-      })
-      .catch(() => {
-        if (!cancelled) setHasUser(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [location.pathname])
-
-  const showBottomNav = hasUser && ['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily'].includes(location.pathname)
+  const showBottomNav = Boolean(user) && ['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily', '/shop'].includes(location.pathname)
 
   return (
     <div className="min-h-screen overflow-hidden">
@@ -83,11 +69,20 @@ export default function App() {
           <Route path="/friends" element={<Friends />} />
           <Route path="/history" element={<History />} />
           <Route path="/notifications" element={<Notifications />} />
+          <Route path="/shop" element={<Shop />} />
         </Routes>
       </div>
       {showBottomNav && <BottomNav />}
       <PageTransition show={transitioning} onDone={() => setTransitioning(false)} />
       {booting && <LoadingScreen full />}
     </div>
+  )
+}
+
+export default function App() {
+  return (
+    <WalletProvider>
+      <AppShell />
+    </WalletProvider>
   )
 }

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import QuizzoLogo from '../components/QuizzoLogo'
 import Icon from '../components/Icon'
+import { useWallet } from '../context/WalletContext'
 
 const CATEGORIES = [
   { id: 'geography',   icon: 'globe', name: 'Geografija',      hue: 220, count: 72 },
@@ -20,6 +21,7 @@ const WELCOME_TILES = [
 
 export default function Home() {
   const navigate = useNavigate()
+  const { wallet, user: walletUser } = useWallet()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [dailyDone, setDailyDone] = useState(false)
@@ -131,6 +133,7 @@ export default function Home() {
   const day = new Date().getDate()
   const xp = myRank?.xp ?? 0
   const rank = myRank?.rank ?? '–'
+  const displayUser = walletUser || user
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
@@ -145,6 +148,14 @@ export default function Home() {
             </div>
           </div>
           <div className="flex items-center gap-1.5">
+            <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
+              <span className="font-mono text-[11px]">🪙</span>
+              <span className="font-mono font-bold text-[12px] tabular">{wallet.coins}</span>
+            </button>
+            <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
+              <span className="font-mono text-[11px]">💎</span>
+              <span className="font-mono font-bold text-[12px] tabular">{wallet.gems}</span>
+            </button>
             <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
               <Icon name="flame" className="w-4 h-4" stroke={2.1} />
               <span className="font-mono font-bold text-[12px] tabular">0</span>
@@ -152,7 +163,7 @@ export default function Home() {
             <Link to="/profile"
               className="w-9 h-9 btl btl-sm sh-2 grid place-items-center font-bold text-[16px]"
               style={{ background: 'var(--accent)' }}>
-              {user.first_name?.[0]?.toUpperCase()}
+              {displayUser.first_name?.[0]?.toUpperCase()}
             </Link>
           </div>
         </div>

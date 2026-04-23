@@ -2,7 +2,20 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
 
-function authMiddleware(req, res, next) {
+async function loadActiveUser(req, userId) {
+  const pool = req.app.get('pool');
+  const { rows } = await pool.query(
+    'SELECT id, email, is_admin, is_blocked FROM users WHERE id = $1 AND deleted_at IS NULL',
+    [userId]
+  );
+  if (!rows[0]) return null;
+  return {
+    ...rows[0],
+    is_admin: Boolean(rows[0].is_admin || (process.env.ADMIN_EMAIL && rows[0].email === process.env.ADMIN_EMAIL)),
+  };
+}
+
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -13,33 +26,35 @@ function authMiddleware(req, res, next) {
 
   try {
     const payload = jwt.verify(token, JWT_SECRET);
-    req.user = payload;
-    req.userId = payload.userId;
+    const user = await loadActiveUser(req, payload.userId);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired token' });
+    if (user.is_blocked) return res.status(403).json({ error: 'Account blocked' });
+    req.user = user;
+    req.userId = user.id;
     next();
   } catch (err) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
 
-function optionalAuth(req, res, next) {
+async function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     try {
       const payload = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
-      req.user = payload;
-      req.userId = payload.userId;
+      const user = await loadActiveUser(req, payload.userId);
+      if (user && !user.is_blocked) {
+        req.user = user;
+        req.userId = user.id;
+      }
     } catch {}
   }
   next();
 }
 
 async function adminMiddleware(req, res, next) {
-  const adminEmail = process.env.ADMIN_EMAIL;
-  if (!adminEmail) return res.status(403).json({ error: 'Forbidden' });
   try {
-    const pool = req.app.get('pool');
-    const result = await pool.query('SELECT email FROM users WHERE id = $1', [req.userId]);
-    if (result.rows[0]?.email !== adminEmail) return res.status(403).json({ error: 'Forbidden' });
+    if (!req.user?.is_admin) return res.status(403).json({ error: 'Forbidden' });
     next();
   } catch {
     res.status(500).json({ error: 'Internal server error' });

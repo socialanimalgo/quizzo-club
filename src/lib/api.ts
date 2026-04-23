@@ -51,10 +51,10 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ category_id, count }),
       }),
-    answer: (session_id: string, question_id: string, answer_index: number, time_ms: number) =>
-      apiFetch<{ correct: boolean; correct_index: number; points: number }>('/quiz/answer', {
+    answer: (session_id: string, question_id: string, answer_index: number, time_ms: number, powerup_id?: string | null) =>
+      apiFetch<{ correct: boolean; correct_index: number; points: number; wallet?: any }>('/quiz/answer', {
         method: 'POST',
-        body: JSON.stringify({ session_id, question_id, answer_index, time_ms }),
+        body: JSON.stringify({ session_id, question_id, answer_index, time_ms, powerup_id }),
       }),
     finish: (session_id: string) =>
       apiFetch<{ session: any; xp_earned: number; percentage: number }>('/quiz/finish', {
@@ -120,6 +120,16 @@ export const api = {
     getPortal: () =>
       apiFetch<{ url: string }>('/stripe/portal', { method: 'POST' }),
   },
+  shop: {
+    catalog: () => apiFetch<{ powerups: any[]; bundles: any[]; gemPacks: any[] }>('/shop/catalog'),
+    wallet: () => apiFetch<{ coins: number; gems: number; inv: Record<string, number> }>('/shop/wallet'),
+    buyPowerup: (body: { powerup_id: string; currency: 'coins' | 'gems'; qty?: number }) =>
+      apiFetch<{ wallet: any; purchase: any }>('/shop/buy-powerup', { method: 'POST', body: JSON.stringify(body) }),
+    buyBundle: (bundle_id: string) =>
+      apiFetch<{ wallet: any; purchase: any }>('/shop/buy-bundle', { method: 'POST', body: JSON.stringify({ bundle_id }) }),
+    buyGems: (pack_id: string) =>
+      apiFetch<{ url?: string; checkout_url?: string }>('/shop/buy-gems', { method: 'POST', body: JSON.stringify({ pack_id }) }),
+  },
   analytics: {
     visit: () => {
       const token = getToken()
@@ -134,6 +144,14 @@ export const api = {
   },
   admin: {
     getStats: () => apiFetch<any>('/admin/stats'),
+    users: (q = '', page = 1) => apiFetch<{ users: any[]; total: number }>(`/admin/users?q=${encodeURIComponent(q)}&offset=${(page - 1) * 50}`),
+    block: (id: string) => apiFetch<{ user: any }>(`/admin/users/${id}/block`, { method: 'POST' }),
+    unblock: (id: string) => apiFetch<{ user: any }>(`/admin/users/${id}/unblock`, { method: 'POST' }),
+    delete: (id: string) => apiFetch<{ ok: boolean }>(`/admin/users/${id}`, { method: 'DELETE' }),
+    gift: (id: string, body: any) => apiFetch<{ user: any; wallet: any }>(`/admin/users/${id}/gift`, { method: 'POST', body: JSON.stringify(body) }),
+    notify: (id: string, message: string) => apiFetch<{ notification: any }>(`/admin/users/${id}/notify`, { method: 'POST', body: JSON.stringify({ message }) }),
+    categories: () => apiFetch<{ categories: any[] }>('/admin/categories'),
+    powerups: () => apiFetch<{ totals: any; per_type: any[] }>('/admin/powerups'),
     getQuestions: (params?: { category?: string; page?: number }) => {
       const qs = new URLSearchParams()
       if (params?.category) qs.set('category', params.category)

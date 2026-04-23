@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import PowerupFab from '../components/PowerupFab'
+import { useWallet } from '../context/WalletContext'
 
 interface Question {
   id: string
@@ -80,8 +82,12 @@ export default function QuizPlay() {
   const [finished, setFinished] = useState(false)
   const [scorePulse, setScorePulse] = useState(0)
   const [questionShake, setQuestionShake] = useState(0)
+  const [eliminated, setEliminated] = useState<number[]>([])
+  const [powerupFlash, setPowerupFlash] = useState('')
+  const [doubleXpActive, setDoubleXpActive] = useState(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const questionStartRef = useRef(Date.now())
+  const { wallet, setWallet } = useWallet()
 
   const headerLabel = useMemo(() => {
     return routeState.categoryLabel || CATEGORY_LABELS[routeState?.session?.category_id] || CATEGORY_LABELS[categoryId || ''] || 'KVIZ'
@@ -168,7 +174,7 @@ export default function QuizPlay() {
     }
   }, [navigate, routeState, categoryId, headerLabel])
 
-  const handleAnswer = useCallback(async (selectedIndex: number) => {
+  const handleAnswer = useCallback(async (selectedIndex: number, powerupId?: string | null) => {
     if (!quiz || revealed || submitting) return
 
     clearInterval(timerRef.current!)
@@ -180,9 +186,11 @@ export default function QuizPlay() {
     const currentQuestion = quiz.questions[quiz.currentIndex]
 
     try {
-      const result = await api.quiz.answer(quiz.sessionId, currentQuestion.id, selectedIndex, elapsed)
+      const result = await api.quiz.answer(quiz.sessionId, currentQuestion.id, selectedIndex, elapsed, powerupId)
+      if (result.wallet) setWallet(result.wallet)
       if (result.correct) setScorePulse(value => value + 1)
       else setQuestionShake(value => value + 1)
+      if (powerupId === 'doublexp') setDoubleXpActive(false)
 
       const newAnswers = [
         ...quiz.answers,
@@ -211,12 +219,13 @@ export default function QuizPlay() {
         setSelected(null)
         setRevealed(false)
         setSubmitting(false)
+        setEliminated([])
       }, 1500)
     } catch (err: any) {
       setSubmitting(false)
       setError(err.message || 'Greška pri slanju odgovora')
     }
-  }, [finishQuiz, quiz, revealed, submitting])
+  }, [finishQuiz, quiz, revealed, submitting, setWallet])
 
   useEffect(() => {
     return () => clearInterval(timerRef.current!)
@@ -249,8 +258,54 @@ export default function QuizPlay() {
   if (!quiz) return null
 
   const question = quiz.questions[quiz.currentIndex]
+  const sessionId = quiz.sessionId
   const progress = ((quiz.currentIndex + 1) / quiz.questions.length) * 100
   const timerPct = (timeLeft / QUESTION_TIME) * 100
+
+  function usePowerup(powerupId: string) {
+    if (revealed || submitting) return
+    const qty = wallet.inv?.[powerupId] || 0
+    if (qty < 1) return
+
+    if (powerupId === 'fifty') {
+      const wrongIndexes = question.options.map((option, index) => ({ option, index })).filter(item => !item.option.correct).map(item => item.index)
+      const nextGone = wrongIndexes.sort(() => Math.random() - 0.5).slice(0, 2)
+      setEliminated(nextGone)
+      setPowerupFlash('50:50 — dva odgovora maknuta')
+      window.setTimeout(() => setPowerupFlash(''), 1800)
+      setWallet({ ...wallet, inv: { ...wallet.inv, fifty: Math.max(0, (wallet.inv?.fifty || 0) - 1) } })
+      api.quiz.answer(sessionId, question.id, -1, 0, 'fifty').then(result => {
+        if (result.wallet) setWallet(result.wallet)
+      }).catch(() => {
+        setWallet(wallet)
+        setEliminated([])
+        setError('50:50 nije uspio')
+      })
+      return
+    }
+
+    if (powerupId === 'doublexp') {
+      setDoubleXpActive(true)
+      setPowerupFlash('⚡ 2× XP aktivno')
+      window.setTimeout(() => setPowerupFlash(''), 1800)
+      setWallet({ ...wallet, inv: { ...wallet.inv, doublexp: Math.max(0, (wallet.inv?.doublexp || 0) - 1) } })
+      api.quiz.answer(sessionId, question.id, -1, 0, 'doublexp').then(result => {
+        if (result.wallet) setWallet(result.wallet)
+      }).catch(() => {
+        setWallet(wallet)
+        setDoubleXpActive(false)
+        setError('2× XP nije uspio')
+      })
+      return
+    }
+
+    const correctIndex = question.options.findIndex(option => option.correct)
+    setPowerupFlash(powerupId === 'freeze' ? '❄️ Freeze — rješavam pitanje' : '🔍 Reveal — odgovor otkriven')
+    window.setTimeout(() => setPowerupFlash(''), 1800)
+    setWallet({ ...wallet, inv: { ...wallet.inv, [powerupId]: Math.max(0, (wallet.inv?.[powerupId] || 0) - 1) } })
+    if (powerupId === 'freeze') clearInterval(timerRef.current!)
+    window.setTimeout(() => handleAnswer(correctIndex, powerupId), powerupId === 'freeze' ? 500 : 400)
+  }
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
@@ -282,7 +337,7 @@ export default function QuizPlay() {
                 className="h-full transition-all duration-1000"
                 style={{
                   width: `${timerPct}%`,
-                  background: timeLeft <= 5 ? '#ef4444' : timeLeft <= 10 ? '#22c55e' : '#22c55e',
+                  background: timeLeft <= 5 ? '#ef4444' : timeLeft <= 10 ? '#f59e0b' : '#22c55e',
                   borderRadius: 999,
                 }}
               />
@@ -310,6 +365,7 @@ export default function QuizPlay() {
             {question.options.map((option, index) => {
               const isCorrect = option.correct
               const isSelected = selected === index
+              const isGone = eliminated.includes(index)
               let bg = '#fff'
               let opacity = 1
 
@@ -317,18 +373,22 @@ export default function QuizPlay() {
                 if (isCorrect) bg = '#dcfce7'
                 else if (isSelected) bg = '#fee2e2'
                 else opacity = 0.5
+              } else if (isGone) {
+                bg = '#f3f4f6'
+                opacity = 0.35
               }
 
               return (
                 <button
                   key={index}
-                  onClick={() => handleAnswer(index)}
-                  disabled={revealed}
+                  onClick={() => !isGone && handleAnswer(index)}
+                  disabled={revealed || isGone}
                   className="btl p-4 flex items-center gap-4 text-left transition-transform disabled:cursor-default"
                   style={{
                     background: bg,
                     boxShadow: '5px 5px 0 0 var(--line)',
                     opacity,
+                    textDecoration: isGone ? 'line-through' : 'none',
                   }}
                 >
                   <span
@@ -352,8 +412,19 @@ export default function QuizPlay() {
               {error}
             </div>
           )}
+          {powerupFlash && (
+            <div className="fixed left-1/2 -translate-x-1/2 bottom-[calc(178px+env(safe-area-inset-bottom))] z-30 btl sh-3 px-4 py-2 font-mono text-[11px] font-bold" style={{ background: '#fff' }}>
+              {powerupFlash}
+            </div>
+          )}
+          {doubleXpActive && !powerupFlash && (
+            <div className="fixed left-1/2 -translate-x-1/2 bottom-[calc(178px+env(safe-area-inset-bottom))] z-30 chip" style={{ background: '#fde68a' }}>
+              ⚡ 2× XP aktivno
+            </div>
+          )}
         </div>
       </div>
+      <PowerupFab disabled={revealed || submitting} onUse={usePowerup} />
     </div>
   )
 }
