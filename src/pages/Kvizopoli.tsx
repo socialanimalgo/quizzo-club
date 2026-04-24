@@ -10,6 +10,7 @@ type Match = {
   hostUserId: string
   status: string
   phase: string
+  winnerId?: string | null
   players: Array<{
     id: string
     name: string
@@ -181,6 +182,7 @@ export default function Kvizopoli() {
 
   const winner = useMemo(() => {
     if (!match?.players?.length) return null
+    if (match.winnerId) return match.players.find(player => player.id === match.winnerId) || null
     return [...match.players].sort((left, right) => {
       const propertyDelta = propertyCount(match.boardSpaces, right.id) - propertyCount(match.boardSpaces, left.id)
       if (propertyDelta !== 0) return propertyDelta
@@ -212,6 +214,14 @@ export default function Kvizopoli() {
     } catch (err: any) {
       setError(err.message || 'Pokretanje meca nije uspjelo')
     }
+  }
+
+  async function leaveMatch() {
+    if (!match) return navigate('/')
+    try {
+      await api.kvizopoli.leave(match.id)
+    } catch {}
+    navigate('/')
   }
 
   async function answer(answerId: string) {
@@ -274,13 +284,25 @@ export default function Kvizopoli() {
     )
   }
 
+  if (match && (!Array.isArray(match.players) || !Array.isArray(match.boardSpaces))) {
+    return (
+      <div className="min-h-screen grid place-items-center px-4" style={{ background: 'var(--paper)' }}>
+        <div className="btl sh-4 p-4 max-w-sm text-center" style={{ background: '#fff' }}>
+          <div className="font-display text-[20px]">Kvizopoli</div>
+          <div className="font-mono text-[11px] opacity-70 mt-2">Podaci meča nisu ispravni.</div>
+          <button className="btn mt-4" onClick={() => navigate('/')}>Natrag</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex flex-col kvizopoli-screen" style={{ backgroundColor: 'var(--paper)' }}>
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 pt-4 pb-5 relative">
         <div className="flex items-center justify-between mb-3">
-          <button onClick={() => navigate('/')} className="btn btn-sm">
+          <button onClick={leaveMatch} className="btn btn-sm">
             <Icon name="back" className="w-4 h-4" />
-            Natrag
+            Napusti
           </button>
           <div className="flex items-center gap-2">
             <button onClick={() => setRulesOpen(true)} className="kv-rules-button" aria-label="Pravila Kvizopolija">?</button>

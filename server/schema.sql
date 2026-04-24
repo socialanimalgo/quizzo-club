@@ -272,12 +272,17 @@ CREATE TABLE IF NOT EXISTS kvizopoli_matches (
   current_dice_value INTEGER,
   current_question JSONB,
   asked_question_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  eliminated_player_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  winner_id UUID REFERENCES users(id) ON DELETE SET NULL,
   duration_ms INTEGER NOT NULL DEFAULT 600000,
   started_at TIMESTAMPTZ DEFAULT NOW(),
   ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '10 minutes'),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE kvizopoli_matches ADD COLUMN IF NOT EXISTS eliminated_player_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE kvizopoli_matches ADD COLUMN IF NOT EXISTS winner_id UUID REFERENCES users(id) ON DELETE SET NULL;
 
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_active_player ON kvizopoli_matches(active_player_id);
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_join_code ON kvizopoli_matches(join_code);

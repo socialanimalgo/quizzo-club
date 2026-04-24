@@ -95,6 +95,7 @@ function serializeMatch(match) {
     startedAt: match.started_at,
     durationMs: match.duration_ms,
     endsAt: match.ends_at,
+    winnerId: match.winner_id || null,
     currentDiceValue: match.current_dice_value,
     currentQuestion,
   };
@@ -214,6 +215,7 @@ async function loadMatch(pool, matchId) {
     players: normalizeJsonArray(row.players),
     board_spaces: normalizeJsonArray(row.board_spaces),
     asked_question_ids: normalizeJsonArray(row.asked_question_ids),
+    eliminated_player_ids: normalizeJsonArray(row.eliminated_player_ids),
     current_question: row.current_question || null,
   };
 }
@@ -229,6 +231,11 @@ async function saveMatch(pool, match) {
          current_dice_value = $7,
          current_question = $8,
          asked_question_ids = $9,
+         eliminated_player_ids = $10,
+         host_user_id = $11,
+         started_at = $12,
+         ends_at = $13,
+         winner_id = $14,
          updated_at = NOW()
      WHERE id = $1
      RETURNING *`,
@@ -242,6 +249,11 @@ async function saveMatch(pool, match) {
       match.current_dice_value,
       match.current_question ? JSON.stringify(match.current_question) : null,
       JSON.stringify(match.asked_question_ids || []),
+      JSON.stringify(match.eliminated_player_ids || []),
+      match.host_user_id,
+      match.started_at,
+      match.ends_at,
+      match.winner_id || null,
     ]
   );
   const next = await loadMatch(pool, rows[0].id);
@@ -251,6 +263,12 @@ async function saveMatch(pool, match) {
 
 async function normalizeLegacyLobbyMatch(pool, match) {
   if (!match) return match;
+  if (match.status === 'active' && !isLobby(match) && !match.ends_at) {
+    const startedAt = match.started_at ? new Date(match.started_at) : new Date();
+    match.started_at = startedAt.toISOString();
+    match.ends_at = new Date(startedAt.getTime() + (match.duration_ms || MATCH_DURATION_MS)).toISOString();
+    return saveMatch(pool, match);
+  }
   if (match.status !== 'active') return match;
   if ((match.players || []).length >= 2) return match;
   if ((match.asked_question_ids || []).length > 0) return match;
@@ -268,6 +286,58 @@ async function normalizeLegacyLobbyMatch(pool, match) {
 async function disposeMatch(pool, matchId) {
   clearTimers(matchId);
   await pool.query('DELETE FROM kvizopoli_matches WHERE id = $1', [matchId]);
+}
+
+function stripPlayerOwnership(match, playerId) {
+  match.board_spaces = match.board_spaces.map(space => (
+    space.ownerId === playerId
+      ? { ...space, ownerId: null, ownerSince: null }
+      : space
+  ));
+}
+
+function removePlayerAndResolve(match, userId) {
+  const leavingPlayer = findPlayer(match, userId);
+  if (!leavingPlayer) return match;
+
+  match.players = match.players.filter(player => player.id !== userId);
+  match.eliminated_player_ids = Array.from(new Set([...(match.eliminated_player_ids || []), userId]));
+  stripPlayerOwnership(match, userId);
+
+  if (match.host_user_id === userId) {
+    match.host_user_id = match.players.sort((left, right) => left.seatIndex - right.seatIndex)[0]?.id || null;
+  }
+
+  if (!match.players.length) return null;
+
+  if (match.players.length === 1 && !isLobby(match)) {
+    const winner = match.players[0];
+    match.status = 'complete';
+    match.phase = 'match_complete';
+    match.active_player_id = null;
+    match.current_question = null;
+    match.current_dice_value = null;
+    match.winner_id = winner.id;
+    if (!match.ends_at) match.ends_at = new Date().toISOString();
+    return match;
+  }
+
+  if (isLobby(match)) {
+    match.phase = 'waiting_for_players';
+    match.active_player_id = null;
+    match.current_question = null;
+    match.current_dice_value = null;
+    return match;
+  }
+
+  if (match.active_player_id === userId) {
+    match.current_question = null;
+    match.current_dice_value = null;
+    match.active_player_id = getNextActivePlayerId(match.players, userId);
+    match.phase = 'waiting_to_roll';
+  }
+
+  return match;
 }
 
 async function finalizeIfExpired(pool, match) {
@@ -492,6 +562,9 @@ router.post('/join', async (req, res) => {
 
     const existing = findPlayer(match, user.id);
     if (existing) return res.json({ match: serializeMatch(match) });
+    if ((match.eliminated_player_ids || []).includes(user.id)) {
+      return res.status(409).json({ error: 'You already left this match' });
+    }
     if (!isLobby(match)) return res.status(409).json({ error: 'Match already started' });
     if (match.players.length >= 4) return res.status(409).json({ error: 'Match is full' });
 
@@ -615,6 +688,30 @@ router.post('/matches/:id/answer', async (req, res) => {
     res.json({ match: serializeMatch(match), correct: resolved.correct });
   } catch (err) {
     console.error('Kvizopoli answer error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/matches/:id/leave', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    let match = await loadMatch(pool, req.params.id);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(pool, match);
+    if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
+
+    const next = removePlayerAndResolve(match, req.userId);
+    if (!next) {
+      await disposeMatch(pool, match.id);
+      return res.json({ ok: true, deleted: true });
+    }
+
+    const saved = await saveMatch(pool, next);
+    if (saved.status === 'complete') clearTimers(saved.id);
+    else scheduleMatchTimers(pool, saved.id);
+    res.json({ ok: true, match: serializeMatch(saved) });
+  } catch (err) {
+    console.error('Kvizopoli leave error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
