@@ -30,6 +30,7 @@ function sanitizeUser(user) {
     coins: Number(user.coins) || 0,
     gems: Number(user.gems) || 0,
     inventory: user.inventory || null,
+    current_streak: Number(user.current_streak) || 0,
   };
 }
 
@@ -154,7 +155,9 @@ router.get('/me', authMiddleware, async (req, res) => {
       client.release();
     }
     const wallet = await getWallet(pool, req.userId);
-    res.json({ user: sanitizeUser({ ...user, inventory: wallet.inv, coins: wallet.coins, gems: wallet.gems }) });
+    const statsResult = await pool.query('SELECT current_streak FROM user_stats WHERE user_id = $1', [req.userId]);
+    const current_streak = statsResult.rows[0]?.current_streak ?? 0;
+    res.json({ user: sanitizeUser({ ...user, inventory: wallet.inv, coins: wallet.coins, gems: wallet.gems, current_streak }) });
   } catch (err) {
     console.error('Get me error:', err);
     res.status(500).json({ error: 'Internal server error' });

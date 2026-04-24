@@ -138,6 +138,7 @@ export default function Home() {
   const rank = myRank?.rank ?? '–'
   const displayUser = walletUser || user
   const headerHeight = 104
+  const totalPowerups = Object.values(wallet.inv || {}).reduce((s: number, v: any) => s + Number(v || 0), 0)
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
@@ -154,10 +155,27 @@ export default function Home() {
                 <div className="font-mono text-[9px] font-bold opacity-50 uppercase tracking-[0.2em] mt-0.5">CLUB · v1</div>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
+              <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fde68a' }}>
+                <span className="text-[12px] leading-none">🪙</span>
+                <span className="font-mono font-bold text-[11px] tabular">{wallet.coins}</span>
+              </button>
+              <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#ddd6fe' }}>
+                <span className="text-[12px] leading-none">💎</span>
+                <span className="font-mono font-bold text-[11px] tabular">{wallet.gems}</span>
+              </button>
+              <button
+                onClick={() => navigate('/shop')}
+                className="relative w-9 h-9 btl btl-sm sh-2 grid place-items-center"
+                style={{ background: '#fff' }}
+              >
+                <Icon name="bag" className="w-4 h-4" stroke={2.1} />
+                {totalPowerups > 0 && (
+                  <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full" style={{ background: '#3b82f6', border: '1.5px solid var(--paper)' }} />
+                )}
+              </button>
               <button
                 onClick={() => navigate('/notifications')}
-                aria-label="Obavijesti"
                 className="relative w-9 h-9 btl btl-sm sh-2 grid place-items-center"
                 style={{ background: '#fff' }}
               >
@@ -171,25 +189,9 @@ export default function Home() {
                   </span>
                 )}
               </button>
-              <button
-                onClick={() => navigate('/shop')}
-                aria-label="Shop"
-                className="w-9 h-9 btl btl-sm sh-2 grid place-items-center"
-                style={{ background: '#fff' }}
-              >
-                <Icon name="crown" className="w-4 h-4" stroke={2.1} />
-              </button>
-              <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
-                <span className="font-mono font-bold text-[12px] tabular">{wallet.coins}</span>
-                <span className="font-mono text-[11px] opacity-60">COIN</span>
-              </button>
-              <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
-                <span className="font-mono font-bold text-[12px] tabular">{wallet.gems}</span>
-                <span className="font-mono text-[11px] opacity-60">GEM</span>
-              </button>
-              <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
-                <Icon name="flame" className="w-4 h-4" stroke={2.1} />
-                <span className="font-mono font-bold text-[12px] tabular">0</span>
+              <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fde68a' }}>
+                <span className="text-[12px] leading-none">🔥</span>
+                <span className="font-mono font-bold text-[11px] tabular">{displayUser?.current_streak ?? 0}</span>
               </div>
               <Link to="/profile" className="w-9 h-9 btl btl-sm sh-2 grid place-items-center font-bold text-[16px]" style={{ background: 'var(--accent)' }}>
                 {displayUser.first_name?.[0]?.toUpperCase()}

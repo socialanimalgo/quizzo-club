@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import AppHeader from '../components/AppHeader'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
 import { useFriendsSummary } from '../hooks/useFriendsSummary'
 import { useWallet } from '../context/WalletContext'
@@ -91,12 +92,7 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
-      <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10"
-        style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
-        <div className="max-w-xl mx-auto flex items-center gap-3">
-          <h1 className="font-display text-[22px]">Profil</h1>
-        </div>
-      </header>
+      <AppHeader />
 
       <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto w-full px-4 py-4 space-y-3 app-scroll-with-nav">
         {/* Avatar card */}

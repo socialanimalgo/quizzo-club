@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import AppHeader from '../components/AppHeader'
 
 interface Stats {
   totalUsers: number
@@ -445,18 +446,7 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
-      <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
-        <div className="max-w-xl mx-auto flex items-center gap-3">
-          <button onClick={() => navigate('/')} className="btl btl-sm sh-2 w-9 h-9 grid place-items-center" style={{ background: '#fff' }}>
-            <Icon name="back" className="w-4 h-4" stroke={2.2} />
-          </button>
-          <div className="flex-1">
-            <h1 className="font-display text-[22px] leading-none">Admin</h1>
-            <p className="font-mono text-[10px] opacity-60 mt-0.5">quizzo.club</p>
-          </div>
-          <span className="chip">ROOT</span>
-        </div>
-      </header>
+      <AppHeader />
 
       <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto w-full px-4 py-4 space-y-4 app-scroll-with-nav">
         <div className="btl sh-3 p-1 flex gap-1" style={{ background: '#fff' }}>

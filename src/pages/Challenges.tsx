@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import AppHeader from '../components/AppHeader'
 
 type Mode = 'challenge' | 'hunter'
 
@@ -77,11 +78,7 @@ export default function Challenges() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
-      <header className="px-4 pt-4 pb-3 border-b-[2.5px] sticky top-0 z-10" style={{ borderColor: 'var(--line)', background: 'var(--paper)' }}>
-        <div className="max-w-xl mx-auto flex items-center gap-3">
-          <h1 className="font-display text-[22px] flex items-center gap-2"><Icon name="swords" className="w-5 h-5" stroke={2.2} />Izazovi</h1>
-        </div>
-      </header>
+      <AppHeader />
 
       <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto px-4 py-4 space-y-3 w-full app-scroll-with-nav">
         {opponent && (
