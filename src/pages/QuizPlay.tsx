@@ -164,6 +164,7 @@ export default function QuizPlay() {
           xp_earned: result.xp_earned,
           percentage: result.percentage,
           challenge_id: routeState?.session?.challenge_id,
+          hotTopic: routeState?.hotTopic ?? null,
           answers,
           categoryLabel: headerLabel,
           isDaily: Boolean(routeState?.isDaily),
