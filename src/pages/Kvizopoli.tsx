@@ -7,6 +7,7 @@ import { KVIZOPOLI_TOPICS } from '../data/categories'
 type Match = {
   id: string
   joinCode: string
+  hostUserId: string
   status: string
   phase: string
   players: Array<{
@@ -27,9 +28,9 @@ type Match = {
     ownerId: string | null
   }>
   activePlayerId: string | null
-  startedAt: string
+  startedAt: string | null
   durationMs: number
-  endsAt: string
+  endsAt: string | null
   currentDiceValue?: number | null
   currentQuestion?: {
     id: string
@@ -170,9 +171,13 @@ export default function Kvizopoli() {
   }, [match])
 
   const me = useMemo(() => match?.players.find(player => player.id === viewer?.id) || null, [match, viewer?.id])
-  const timeLeftMs = Math.max(0, match ? new Date(match.endsAt).getTime() - now : 0)
-  const timerPct = match ? Math.max(0, Math.min(100, (timeLeftMs / match.durationMs) * 100)) : 0
-  const timerText = `${String(Math.floor(timeLeftMs / 60000)).padStart(2, '0')}:${String(Math.floor((timeLeftMs % 60000) / 1000)).padStart(2, '0')}`
+  const isLobby = !!match && (match.status === 'lobby' || match.phase === 'waiting_for_players')
+  const isHost = match?.hostUserId === viewer?.id
+  const timeLeftMs = Math.max(0, match?.endsAt ? new Date(match.endsAt).getTime() - now : match?.durationMs || 0)
+  const timerPct = match?.endsAt ? Math.max(0, Math.min(100, (timeLeftMs / match.durationMs) * 100)) : 100
+  const timerText = match?.endsAt
+    ? `${String(Math.floor(timeLeftMs / 60000)).padStart(2, '0')}:${String(Math.floor((timeLeftMs % 60000) / 1000)).padStart(2, '0')}`
+    : 'LOBBY'
 
   const winner = useMemo(() => {
     if (!match?.players?.length) return null
@@ -195,6 +200,17 @@ export default function Kvizopoli() {
       if (result.match.currentQuestion) setSelected(result.match.currentQuestion.spaceId)
     } catch (err: any) {
       setError(err.message || 'Bacanje kocke nije uspjelo')
+    }
+  }
+
+  async function startMatch() {
+    if (!match) return
+    try {
+      setError('')
+      const result = await api.kvizopoli.start(match.id)
+      setMatch(result.match)
+    } catch (err: any) {
+      setError(err.message || 'Pokretanje meca nije uspjelo')
     }
   }
 
@@ -295,7 +311,7 @@ export default function Kvizopoli() {
                   <div className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>SOBA · {match.players.length}/4</div>
                   <h1 className="font-display text-[38px] leading-none mt-2">Kvizopoli</h1>
                   <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70 mt-2">
-                    Server vodi poteze, pitanja i vlasnistvo polja
+                    {isLobby ? 'Lobby otvoren · host pokrece mec' : 'Server vodi poteze, pitanja i vlasnistvo polja'}
                   </div>
                 </div>
                 <div className="kv-session-code">
@@ -359,7 +375,29 @@ export default function Kvizopoli() {
                 })}
 
                 <div className="kv-board-center">
-                  {match.currentQuestion ? (
+                  {isLobby ? (
+                    <div className="kv-question-pop">
+                      <div className="chip" style={{ background: 'var(--accent)', color: 'var(--ink)' }}>
+                        {match.players.length < 2 ? 'Potrebna 2 igraca' : 'Spremno za start'}
+                      </div>
+                      <div className="font-display text-[20px] leading-tight mt-2">
+                        {isHost ? 'Pokreni mec kad ste spremni.' : 'Cekaj da host pokrene mec.'}
+                      </div>
+                      <div className="font-mono text-[10px] font-bold uppercase opacity-60 mt-2">
+                        Najmanje 2 igraca · nakon starta nitko novi ne moze uci
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button onClick={() => { setInviteMode('friends'); setInviteOpen(true) }} className="btn btn-sm">
+                          Pozovi igrace
+                        </button>
+                        {isHost && (
+                          <button onClick={startMatch} disabled={match.players.length < 2} className="btn btn-primary btn-sm">
+                            Start match
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : match.currentQuestion ? (
                     <div className="kv-question-pop">
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <div className="chip" style={{ background: 'var(--accent)', color: 'var(--ink)' }}>
@@ -385,7 +423,7 @@ export default function Kvizopoli() {
                       </div>
                     </div>
                   ) : (
-                    <button onClick={roll} disabled={match.activePlayerId !== me?.id || match.status === 'complete'} className="kv-dice-roll">
+                    <button onClick={roll} disabled={match.activePlayerId !== me?.id || match.status === 'complete' || isLobby} className="kv-dice-roll">
                       <span className="kv-die" aria-hidden="true">
                         {Array.from({ length: 9 }).map((_, index) => (
                           <i key={index} className={DICE_DOTS[match.currentDiceValue || 1].includes(index) ? 'on' : ''} />

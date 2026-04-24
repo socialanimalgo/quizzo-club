@@ -95,6 +95,7 @@ export const api = {
     create: () => apiFetch<{ match: any }>('/kvizopoli/create', { method: 'POST' }),
     join: (join_code: string) => apiFetch<{ match: any }>('/kvizopoli/join', { method: 'POST', body: JSON.stringify({ join_code }) }),
     state: (id: string) => apiFetch<{ match: any }>(`/kvizopoli/matches/${id}`),
+    start: (id: string) => apiFetch<{ match: any }>(`/kvizopoli/matches/${id}/start`, { method: 'POST' }),
     roll: (id: string) => apiFetch<{ match: any }>(`/kvizopoli/matches/${id}/roll`, { method: 'POST' }),
     answer: (id: string, answer_id: string) =>
       apiFetch<{ match: any; correct: boolean }>(`/kvizopoli/matches/${id}/answer`, { method: 'POST', body: JSON.stringify({ answer_id }) }),

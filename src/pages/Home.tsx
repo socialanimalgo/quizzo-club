@@ -138,52 +138,54 @@ export default function Home() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
-      <header className="px-4 pt-4 pb-3 shrink-0">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <QuizzoLogo size={34} />
-            <div className="leading-tight">
-              <div className="font-display text-[18px] font-bold leading-none">Quizzo<span style={{ color: 'var(--accent-deep)' }}>.</span></div>
-              <div className="font-mono text-[9px] font-bold opacity-50 uppercase tracking-[0.2em] mt-0.5">CLUB · v1</div>
+      <div className="sticky top-0 z-30 shrink-0" style={{ background: 'var(--paper)' }}>
+        <header className="px-4 pt-4 pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <QuizzoLogo size={34} />
+              <div className="leading-tight">
+                <div className="font-display text-[18px] font-bold leading-none">Quizzo<span style={{ color: 'var(--accent-deep)' }}>.</span></div>
+                <div className="font-mono text-[9px] font-bold opacity-50 uppercase tracking-[0.2em] mt-0.5">CLUB · v1</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
+                <span className="font-mono font-bold text-[12px] tabular">{wallet.coins}</span>
+                <span className="font-mono text-[11px] opacity-60">COIN</span>
+              </button>
+              <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
+                <span className="font-mono font-bold text-[12px] tabular">{wallet.gems}</span>
+                <span className="font-mono text-[11px] opacity-60">GEM</span>
+              </button>
+              <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
+                <Icon name="flame" className="w-4 h-4" stroke={2.1} />
+                <span className="font-mono font-bold text-[12px] tabular">0</span>
+              </div>
+              <Link to="/profile" className="w-9 h-9 btl btl-sm sh-2 grid place-items-center font-bold text-[16px]" style={{ background: 'var(--accent)' }}>
+                {displayUser.first_name?.[0]?.toUpperCase()}
+              </Link>
             </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
-              <span className="font-mono font-bold text-[12px] tabular">{wallet.coins}</span>
-              <span className="font-mono text-[11px] opacity-60">COIN</span>
-            </button>
-            <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
-              <span className="font-mono font-bold text-[12px] tabular">{wallet.gems}</span>
-              <span className="font-mono text-[11px] opacity-60">GEM</span>
-            </button>
-            <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
-              <Icon name="flame" className="w-4 h-4" stroke={2.1} />
-              <span className="font-mono font-bold text-[12px] tabular">0</span>
-            </div>
-            <Link to="/profile" className="w-9 h-9 btl btl-sm sh-2 grid place-items-center font-bold text-[16px]" style={{ background: 'var(--accent)' }}>
-              {displayUser.first_name?.[0]?.toUpperCase()}
-            </Link>
-          </div>
-        </div>
-      </header>
+        </header>
 
-      <div className="overflow-hidden border-y-[2.5px] border-[var(--line)] py-1.5 shrink-0" style={{ background: 'var(--ink)', color: '#fff' }}>
-        <div className="anim-marquee flex whitespace-nowrap font-mono font-bold text-[11px] uppercase tracking-widest">
-          {[0, 1].map(block => (
-            <div key={block} className="flex shrink-0">
-              {[
-                `⚡ ${xp} XP UKUPNO`,
-                `🏆 #${rank} LJESTVICA`,
-                `⚔ IZAZOVI CEKAJU`,
-                `📅 DNEVNI KVIZ ${dailyDone ? 'RIJESEN' : 'SPREMAN'}`,
-              ].map((message, index) => (
-                <span key={index} className="px-6 inline-flex items-center gap-2">
-                  {message}
-                  <span className="opacity-40">//</span>
-                </span>
-              ))}
-            </div>
-          ))}
+        <div className="overflow-hidden border-y-[2.5px] border-[var(--line)] py-1.5" style={{ background: 'var(--ink)', color: '#fff' }}>
+          <div className="anim-marquee flex whitespace-nowrap font-mono font-bold text-[11px] uppercase tracking-widest">
+            {[0, 1].map(block => (
+              <div key={block} className="flex shrink-0">
+                {[
+                  `⚡ ${xp} XP UKUPNO`,
+                  `🏆 #${rank} LJESTVICA`,
+                  `⚔ IZAZOVI CEKAJU`,
+                  `📅 DNEVNI KVIZ ${dailyDone ? 'RIJESEN' : 'SPREMAN'}`,
+                ].map((message, index) => (
+                  <span key={index} className="px-6 inline-flex items-center gap-2">
+                    {message}
+                    <span className="opacity-40">//</span>
+                  </span>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

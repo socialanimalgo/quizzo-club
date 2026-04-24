@@ -18,6 +18,11 @@ const QUESTION_TIME_LIMIT_MS = 20 * 1000;
 const matchEndTimers = new Map();
 const questionTimers = new Map();
 
+function activeMembershipWhereClause() {
+  return `status IN ('lobby', 'active')
+          AND (ends_at IS NULL OR ends_at > NOW())`;
+}
+
 function randomJoinCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = 'QZ-';
@@ -81,6 +86,7 @@ function serializeMatch(match) {
   return {
     id: match.id,
     joinCode: match.join_code,
+    hostUserId: match.host_user_id,
     status: match.status,
     phase: match.phase,
     players: match.players,
@@ -139,6 +145,10 @@ function finalizeMatch(match) {
     current_question: null,
     winner_id: players[0]?.id || null,
   };
+}
+
+function isLobby(match) {
+  return match.status === 'lobby' || match.phase === 'waiting_for_players';
 }
 
 function clearTimers(matchId) {
@@ -232,8 +242,25 @@ async function saveMatch(pool, match) {
   return next;
 }
 
+async function normalizeLegacyLobbyMatch(pool, match) {
+  if (!match) return match;
+  if (match.status !== 'active') return match;
+  if ((match.players || []).length >= 2) return match;
+  if ((match.asked_question_ids || []).length > 0) return match;
+  if (match.current_question) return match;
+
+  match.status = 'lobby';
+  match.phase = 'waiting_for_players';
+  match.active_player_id = null;
+  match.current_dice_value = null;
+  match.started_at = null;
+  match.ends_at = null;
+  return saveMatch(pool, match);
+}
+
 async function finalizeIfExpired(pool, match) {
   if (match.status === 'complete') return match;
+  if (!match.ends_at || isLobby(match)) return match;
   if (new Date(match.ends_at).getTime() > Date.now()) return match;
   const finalized = finalizeMatch(match);
   return saveMatch(pool, finalized);
@@ -293,6 +320,7 @@ function scheduleMatchTimers(pool, matchId) {
   loadMatch(pool, matchId).then(async currentMatch => {
     if (!currentMatch) return;
     if (currentMatch.status === 'complete') return;
+    if (isLobby(currentMatch) || !currentMatch.ends_at) return;
 
     const matchDelay = Math.max(0, new Date(currentMatch.ends_at).getTime() - Date.now());
     const matchTimer = setTimeout(async () => {
@@ -327,6 +355,7 @@ router.get('/matches/:id/stream', async (req, res) => {
 
     let match = await loadMatch(req.app.get('pool'), req.params.id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(req.app.get('pool'), match);
     if (!findPlayer(match, user.id)) return res.status(403).json({ error: 'Forbidden' });
     match = await finalizeIfExpired(req.app.get('pool'), match);
 
@@ -367,8 +396,7 @@ router.post('/create', async (req, res) => {
     const { rows: existingRows } = await pool.query(
       `SELECT id
        FROM kvizopoli_matches
-       WHERE status = 'active'
-         AND ends_at > NOW()
+       WHERE ${activeMembershipWhereClause()}
          AND EXISTS (
            SELECT 1
            FROM jsonb_array_elements(players) AS player
@@ -380,7 +408,7 @@ router.post('/create', async (req, res) => {
     );
 
     if (existingRows.length) {
-      const existing = await loadMatch(pool, existingRows[0].id);
+      const existing = await normalizeLegacyLobbyMatch(pool, await loadMatch(pool, existingRows[0].id));
       return res.json({ match: serializeMatch(await finalizeIfExpired(pool, existing)) });
     }
 
@@ -394,15 +422,14 @@ router.post('/create', async (req, res) => {
     const players = [buildPlayer(user, 0)];
     const { rows } = await pool.query(
       `INSERT INTO kvizopoli_matches (
-         join_code, host_user_id, status, phase, players, board_spaces, active_player_id, duration_ms, ends_at
+         join_code, host_user_id, status, phase, players, board_spaces, active_player_id, duration_ms, started_at, ends_at
        )
-       VALUES ($1, $2, 'active', 'waiting_to_roll', $3, $4, $2, $5, NOW() + ($6 * INTERVAL '1 millisecond'))
+       VALUES ($1, $2, 'lobby', 'waiting_for_players', $3, $4, NULL, $5, NULL, NULL)
        RETURNING id`,
-      [joinCode, user.id, JSON.stringify(players), JSON.stringify(buildBoardSpaces()), MATCH_DURATION_MS, MATCH_DURATION_MS]
+      [joinCode, user.id, JSON.stringify(players), JSON.stringify(buildBoardSpaces()), MATCH_DURATION_MS]
     );
 
     const match = await loadMatch(pool, rows[0].id);
-    scheduleMatchTimers(pool, match.id);
     res.status(201).json({ match: serializeMatch(match) });
   } catch (err) {
     console.error('Kvizopoli create error:', err);
@@ -420,8 +447,7 @@ router.post('/join', async (req, res) => {
     const { rows: existingMembershipRows } = await pool.query(
       `SELECT id, join_code
        FROM kvizopoli_matches
-       WHERE status = 'active'
-         AND ends_at > NOW()
+       WHERE ${activeMembershipWhereClause()}
          AND EXISTS (
            SELECT 1
            FROM jsonb_array_elements(players) AS player
@@ -439,6 +465,7 @@ router.post('/join', async (req, res) => {
     })();
 
     if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(pool, match);
     match = await finalizeIfExpired(pool, match);
     if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
 
@@ -448,15 +475,42 @@ router.post('/join', async (req, res) => {
 
     const existing = findPlayer(match, user.id);
     if (existing) return res.json({ match: serializeMatch(match) });
+    if (!isLobby(match)) return res.status(409).json({ error: 'Match already started' });
     if (match.players.length >= 4) return res.status(409).json({ error: 'Match is full' });
 
     const nextSeat = match.players.length;
     match.players.push(buildPlayer(user, nextSeat));
     match = await saveMatch(pool, match);
-    scheduleMatchTimers(pool, match.id);
     res.json({ match: serializeMatch(match) });
   } catch (err) {
     console.error('Kvizopoli join error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/matches/:id/start', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    let match = await loadMatch(pool, req.params.id);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(pool, match);
+    if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
+    if (match.host_user_id !== req.userId) return res.status(403).json({ error: 'Only host can start' });
+    if (!isLobby(match)) return res.status(409).json({ error: 'Match already started' });
+    if (match.players.length < 2) return res.status(409).json({ error: 'Potrebna su najmanje 2 igraca' });
+
+    const startedAt = new Date();
+    match.status = 'active';
+    match.phase = 'waiting_to_roll';
+    match.active_player_id = match.host_user_id;
+    match.started_at = startedAt.toISOString();
+    match.ends_at = new Date(startedAt.getTime() + match.duration_ms).toISOString();
+
+    match = await saveMatch(pool, match);
+    scheduleMatchTimers(pool, match.id);
+    res.json({ match: serializeMatch(match) });
+  } catch (err) {
+    console.error('Kvizopoli start error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -466,6 +520,7 @@ router.get('/matches/:id', async (req, res) => {
     const pool = req.app.get('pool');
     let match = await loadMatch(pool, req.params.id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(pool, match);
     if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
     match = await finalizeIfExpired(pool, match);
     res.json({ match: serializeMatch(match) });
@@ -480,8 +535,10 @@ router.post('/matches/:id/roll', async (req, res) => {
     const pool = req.app.get('pool');
     let match = await loadMatch(pool, req.params.id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(pool, match);
     if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
     match = await finalizeIfExpired(pool, match);
+    if (isLobby(match)) return res.status(409).json({ error: 'Match has not started' });
     if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
     if (match.phase !== 'waiting_to_roll') return res.status(409).json({ error: 'Cannot roll right now' });
     if (match.active_player_id !== req.userId) return res.status(403).json({ error: 'Not your turn' });
@@ -527,8 +584,10 @@ router.post('/matches/:id/answer', async (req, res) => {
     const { answer_id } = req.body;
     let match = await loadMatch(pool, req.params.id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(pool, match);
     if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
     match = await finalizeIfExpired(pool, match);
+    if (isLobby(match)) return res.status(409).json({ error: 'Match has not started' });
     if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
     if (match.phase !== 'answering' || !match.current_question) return res.status(409).json({ error: 'No active question' });
     if (match.active_player_id !== req.userId) return res.status(403).json({ error: 'Not your turn' });
@@ -551,6 +610,7 @@ router.post('/matches/:id/invite', async (req, res) => {
 
     let match = await loadMatch(pool, req.params.id);
     if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await normalizeLegacyLobbyMatch(pool, match);
     if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
     match = await finalizeIfExpired(pool, match);
     if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
