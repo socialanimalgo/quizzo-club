@@ -290,6 +290,80 @@ ALTER TABLE kvizopoli_matches ADD COLUMN IF NOT EXISTS winner_id UUID REFERENCES
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_active_player ON kvizopoli_matches(active_player_id);
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_join_code ON kvizopoli_matches(join_code);
 
+CREATE TABLE IF NOT EXISTS hot_topic_quizzes (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  slug TEXT UNIQUE NOT NULL,
+  title TEXT NOT NULL,
+  category_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  starts_at TIMESTAMPTZ,
+  ends_at TIMESTAMPTZ,
+  timezone TEXT NOT NULL DEFAULT 'Europe/Zagreb',
+  reward_gems INTEGER NOT NULL DEFAULT 100,
+  badge_key TEXT,
+  badge_title TEXT,
+  image_url TEXT,
+  question_count INTEGER NOT NULL DEFAULT 12,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS hot_topic_attempts (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hot_topic_slug TEXT NOT NULL REFERENCES hot_topic_quizzes(slug) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  session_id UUID NOT NULL REFERENCES quiz_sessions(id) ON DELETE CASCADE,
+  score INTEGER NOT NULL DEFAULT 0,
+  correct_answers INTEGER NOT NULL DEFAULT 0,
+  xp_awarded INTEGER NOT NULL DEFAULT 0,
+  leaderboard_points_awarded INTEGER NOT NULL DEFAULT 0,
+  time_ms INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (session_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_hot_topic_attempts_lookup ON hot_topic_attempts (hot_topic_slug, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_hot_topic_attempts_user ON hot_topic_attempts (hot_topic_slug, user_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS hot_topic_reward_claims (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  hot_topic_slug TEXT NOT NULL REFERENCES hot_topic_quizzes(slug) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  period_type TEXT NOT NULL,
+  period_start TIMESTAMPTZ NOT NULL,
+  period_end TIMESTAMPTZ NOT NULL,
+  reward_type TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (hot_topic_slug, user_id, period_type, period_start, reward_type)
+);
+
+CREATE TABLE IF NOT EXISTS user_badges (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  badge_key TEXT NOT NULL,
+  title TEXT NOT NULL,
+  source TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE (user_id, badge_key)
+);
+
+INSERT INTO hot_topic_quizzes (
+  slug, title, category_id, status, timezone, reward_gems, badge_key, badge_title, image_url, question_count
+) VALUES (
+  'beliebers', 'Belieber Kviz', 'beliebers', 'active', 'Europe/Zagreb', 100, 'true_belieber', 'True Belieber', '/belieber-coachella-anime.png', 12
+)
+ON CONFLICT (slug) DO UPDATE SET
+  title = EXCLUDED.title,
+  category_id = EXCLUDED.category_id,
+  status = EXCLUDED.status,
+  timezone = EXCLUDED.timezone,
+  reward_gems = EXCLUDED.reward_gems,
+  badge_key = EXCLUDED.badge_key,
+  badge_title = EXCLUDED.badge_title,
+  image_url = EXCLUDED.image_url,
+  question_count = EXCLUDED.question_count,
+  updated_at = NOW();
+
 CREATE TABLE IF NOT EXISTS app_meta (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL DEFAULT '{}'::jsonb,

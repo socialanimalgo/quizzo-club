@@ -72,6 +72,18 @@ export const api = {
     get: (type: 'alltime' | 'weekly' | 'daily' = 'alltime') =>
       apiFetch<{ leaderboard: any[]; my_rank: any }>(`/leaderboard?type=${type}`),
   },
+  hotTopics: {
+    get: (slug: string) => apiFetch<{ hot_topic: any }>(`/hot-topics/${slug}`),
+    leaderboard: (slug: string, period: 'daily' | 'weekly' = 'weekly', limit = 10) =>
+      apiFetch<{ leaderboard: any[]; period: string; period_start: string; period_end: string }>(`/hot-topics/${slug}/leaderboard?period=${period}&limit=${limit}`),
+    me: (slug: string) => apiFetch<{ me: any }>(`/hot-topics/${slug}/me`),
+    start: (slug: string) => apiFetch<{ session_id: string; questions: any[]; hot_topic: string }>(`/hot-topics/${slug}/start`, { method: 'POST' }),
+    complete: (slug: string, session_id: string) =>
+      apiFetch<{ recorded: boolean; leaderboard_points_awarded: number; me: any }>(`/hot-topics/${slug}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ session_id }),
+      }),
+  },
   challenges: {
     create: (category_id: string, mode: 'challenge' | 'hunter' = 'challenge', challenged_user_id?: string) =>
       apiFetch<{ challenge_id: string; share_code: string; session_id: string; questions: any[] }>('/challenges/create', {

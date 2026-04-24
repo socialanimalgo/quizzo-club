@@ -270,7 +270,7 @@ export default function Home() {
         </div>
 
         <div className="px-4 pb-4">
-          <button onClick={() => navigate(`/quiz/${HOT_TOPIC.id}`)} className="btl btl-lg sh-6 w-full text-left p-5 relative overflow-hidden hot-topic-card">
+          <button onClick={() => navigate(`/hot-topics/${HOT_TOPIC.id}`)} className="btl btl-lg sh-6 w-full text-left p-5 relative overflow-hidden hot-topic-card">
             <img src={HOT_TOPIC.image} alt="" className="hot-topic-image" />
             <div className="absolute inset-0 hot-topic-scrim" />
             <div className="relative max-w-[68%]">

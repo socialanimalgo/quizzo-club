@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
@@ -38,6 +38,8 @@ export default function QuizResults() {
   const navigate = useNavigate()
   const state = (location.state as any) || null
   const [challengeResult, setChallengeResult] = useState<any>(null)
+  const [hotTopicResult, setHotTopicResult] = useState<any>(null)
+  const hotTopicCompletedRef = useRef(false)
 
   useEffect(() => {
     if (!state) {
@@ -46,6 +48,10 @@ export default function QuizResults() {
     }
     if (state.challenge_id) {
       api.challenges.complete(state.challenge_id).then(setChallengeResult).catch(() => {})
+    }
+    if (state.hotTopic?.slug && state.session?.id && !hotTopicCompletedRef.current) {
+      hotTopicCompletedRef.current = true
+      api.hotTopics.complete(state.hotTopic.slug, state.session.id).then(setHotTopicResult).catch(() => {})
     }
   }, [state, navigate])
 
@@ -87,10 +93,13 @@ export default function QuizResults() {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className={`grid gap-3 mb-4 ${hotTopicResult ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-3'}`}>
             <StatCard label="SCORE" value={<AnimatedNumber target={score} />} bg="var(--ink)" color="#fff" />
             <StatCard label="+XP" value={<>+<AnimatedNumber target={xpEarned} /></>} bg="var(--accent)" />
             <StatCard label="TOČNI" value={`${correct}/${total}`} bg="#fff" />
+            {hotTopicResult && (
+              <StatCard label="HOT TOPIC" value={`+${hotTopicResult.leaderboard_points_awarded || 0}`} bg="#fce7f3" />
+            )}
           </div>
 
           {challengeResult?.status === 'waiting' && (
@@ -111,6 +120,22 @@ export default function QuizResults() {
                 <div className="btl sh-2 p-3" style={{ background: '#f3f4f6' }}>
                   <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Protivnik</div>
                   <div className="font-display text-[30px] leading-none tabular">{challengeResult.challenged_correct ?? challengeResult.challenger_correct ?? '?'}</div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {hotTopicResult && (
+            <div className="btl sh-3 p-4 mb-4" style={{ background: '#fff' }}>
+              <div className="font-mono text-[11px] font-bold uppercase tracking-widest opacity-60 mb-3">// Hot topic rezultat</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="btl sh-2 p-3" style={{ background: '#fce7f3' }}>
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Bodovi</div>
+                  <div className="font-display text-[30px] leading-none tabular">+{hotTopicResult.leaderboard_points_awarded || 0}</div>
+                </div>
+                <div className="btl sh-2 p-3" style={{ background: '#eef2ff' }}>
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60 mb-1">Tjedni rank</div>
+                  <div className="font-display text-[30px] leading-none tabular">{hotTopicResult.me?.weekly?.rank ? `#${hotTopicResult.me.weekly.rank}` : '—'}</div>
                 </div>
               </div>
             </div>
@@ -154,7 +179,7 @@ export default function QuizResults() {
               Početna
             </Link>
           </div>
-          <Link to={state.isDaily ? '/leaderboard?type=daily' : '/leaderboard'} className="btn w-full text-center" style={{ background: '#fde68a' }}>
+          <Link to={state.hotTopic?.slug ? `/hot-topics/${state.hotTopic.slug}` : (state.isDaily ? '/leaderboard?type=daily' : '/leaderboard')} className="btn w-full text-center" style={{ background: '#fde68a' }}>
             <Icon name="crown" className="w-4 h-4" stroke={2.2} />
             Ljestvica
           </Link>
