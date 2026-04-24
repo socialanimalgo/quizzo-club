@@ -5,6 +5,7 @@ import AppHeader from '../components/AppHeader'
 import Avatar from '../components/Avatar'
 import Icon from '../components/Icon'
 import { useWallet } from '../context/WalletContext'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 type Tab = 'basic' | 'premium'
 
@@ -36,6 +37,8 @@ export default function AvatarBank() {
   }, [navigate])
 
   const avatars = useMemo(() => catalog[tab] || [], [catalog, tab])
+
+  useLoadingOverlay(loading, { message: 'UČITAVAM AVATARE' })
 
   async function selectAvatar(avatar: any) {
     try {

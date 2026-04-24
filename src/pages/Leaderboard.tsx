@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import AppHeader from '../components/AppHeader'
 import Avatar from '../components/Avatar'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 type Tab = 'alltime' | 'weekly' | 'daily'
 
@@ -25,6 +26,8 @@ export default function Leaderboard() {
     setLoading(true)
     api.leaderboard.get(tab).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
   }, [tab])
+
+  useLoadingOverlay(loading, { message: 'BROJIM POENE' })
 
   function score(row: any) {
     if (tab === 'alltime') return `${row.xp ?? 0} XP`

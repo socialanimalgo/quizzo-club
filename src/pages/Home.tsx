@@ -7,6 +7,7 @@ import { useWallet } from '../context/WalletContext'
 import { CORE_CATEGORIES, HOT_TOPIC } from '../data/categories'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
 import Avatar from '../components/Avatar'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 const WELCOME_TILES = [
   { icon: 'globe', hue: 220 },
@@ -52,6 +53,8 @@ export default function Home() {
 
     return () => window.clearInterval(interval)
   }, [])
+
+  useLoadingOverlay(loading, { message: 'UČITAVAM' })
 
   if (loading) return null
 

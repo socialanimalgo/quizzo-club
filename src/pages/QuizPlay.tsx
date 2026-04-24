@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import PowerupFab from '../components/PowerupFab'
 import { useWallet } from '../context/WalletContext'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 interface Question {
   id: string
@@ -230,6 +231,8 @@ export default function QuizPlay() {
   useEffect(() => {
     return () => clearInterval(timerRef.current!)
   }, [])
+
+  useLoadingOverlay(loading, { message: 'MJEŠAM PITANJA' })
 
   if (loading) {
     return (

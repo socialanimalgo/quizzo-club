@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import { useWallet } from '../context/WalletContext'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 type Tab = 'powerups' | 'bundles' | 'gems'
 
@@ -94,6 +95,8 @@ export default function Shop() {
       setBusyKey('')
     }
   }
+
+  useLoadingOverlay(loading, { message: 'OTVARAM SHOP' })
 
   if (loading) return null
   if (!catalog) {

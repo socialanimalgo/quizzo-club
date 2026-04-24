@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import Icon from '../components/Icon'
 import { api } from '../lib/api'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 import { KVIZOPOLI_TOPICS } from '../data/categories'
 
 type Match = {
@@ -271,6 +272,8 @@ export default function Kvizopoli() {
       setSelected(match.currentQuestion.spaceId)
     }
   }, [match?.currentQuestion?.spaceId])
+
+  useLoadingOverlay(loading, { message: 'PRIPREMAM PLOČU' })
 
   if (loading) {
     return (

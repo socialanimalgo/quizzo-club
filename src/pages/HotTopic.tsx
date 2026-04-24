@@ -4,6 +4,7 @@ import { api } from '../lib/api'
 import AppHeader from '../components/AppHeader'
 import Icon from '../components/Icon'
 import { HOT_TOPIC } from '../data/categories'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 const PODIUM_TONES = ['#fde68a', '#e5e7eb', '#fed7aa']
 const PODIUM_ORDER = [1, 0, 2]
@@ -75,6 +76,8 @@ export default function HotTopic() {
   const rest = leaderboard.slice(3)
   const countdown = useMemo(() => meta?.weekly_cutoff ? formatCountdown(meta.weekly_cutoff) : '', [meta?.weekly_cutoff])
   const weeklyStanding = me?.weekly
+
+  useLoadingOverlay(loading || starting, { message: starting ? 'PRIPREMAM KVIZ' : 'TRAŽIM NAJBOLJE' })
 
   async function startQuiz() {
     try {

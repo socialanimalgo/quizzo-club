@@ -7,6 +7,7 @@ import Avatar from '../components/Avatar'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
 import { useFriendsSummary } from '../hooks/useFriendsSummary'
 import { useWallet } from '../context/WalletContext'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 export default function Profile() {
   const navigate = useNavigate()
@@ -25,6 +26,8 @@ export default function Profile() {
     })
     fetch('/api/locale').then(r => r.json()).then(d => setCountryCode(d.countryCode || 'HR')).catch(() => {})
   }, [navigate])
+
+  useLoadingOverlay(!user, { message: 'UČITAVAM PROFIL' })
 
   if (!user) return null
 

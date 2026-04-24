@@ -24,6 +24,7 @@ import LoadingScreen from './components/LoadingScreen'
 import PageTransition from './components/PageTransition'
 import BottomNav from './components/BottomNav'
 import { WalletProvider, useWallet } from './context/WalletContext'
+import { LoadingOverlayProvider } from './context/LoadingOverlayContext'
 import GameInvitePopup from './components/GameInvitePopup'
 
 type PendingInvite = {
@@ -194,7 +195,9 @@ function AppShell() {
 export default function App() {
   return (
     <WalletProvider>
-      <AppShell />
+      <LoadingOverlayProvider>
+        <AppShell />
+      </LoadingOverlayProvider>
     </WalletProvider>
   )
 }

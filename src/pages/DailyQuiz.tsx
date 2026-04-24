@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 
 function formatCountdown(totalSeconds: number) {
   const hours = Math.floor(totalSeconds / 3600)
@@ -92,6 +93,8 @@ export default function DailyQuiz() {
       setStarting(false)
     }
   }
+
+  useLoadingOverlay(loading || starting, { message: starting ? 'PRIPREMAM KVIZ' : 'UČITAVAM DNEVNI KVIZ' })
 
   if (loading) {
     return (

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
+import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 import Icon from '../components/Icon'
 import AppHeader from '../components/AppHeader'
 
@@ -512,6 +513,8 @@ export default function Admin() {
       setScheduleBusy(false)
     }
   }
+
+  useLoadingOverlay(loading, { message: 'UČITAVAM ADMIN' })
 
   if (loading) {
     return (
