@@ -349,4 +349,163 @@ router.get('/powerups', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
+const DAILY_Q_COUNT = 30;
+
+// GET /api/admin/daily-quizzes?from=YYYY-MM-DD&to=YYYY-MM-DD
+router.get('/daily-quizzes', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const today = new Date().toISOString().slice(0, 10);
+    const from = req.query.from || today;
+    const to = req.query.to || (() => {
+      const d = new Date(from); d.setDate(d.getDate() + 6); return d.toISOString().slice(0, 10);
+    })();
+
+    const { rows } = await pool.query(
+      `SELECT quiz_date::text AS date,
+              CASE WHEN question_ids IS NULL THEN 0 ELSE jsonb_array_length(question_ids) END AS question_count
+       FROM daily_quizzes WHERE quiz_date BETWEEN $1 AND $2 ORDER BY quiz_date`,
+      [from, to]
+    );
+
+    const scheduled = new Map(rows.map(r => [r.date, parseInt(r.question_count)]));
+    const result = [];
+    const d = new Date(from);
+    const end = new Date(to);
+    while (d <= end) {
+      const dateStr = d.toISOString().slice(0, 10);
+      result.push({ date: dateStr, question_count: scheduled.get(dateStr) ?? 0, scheduled: scheduled.has(dateStr) });
+      d.setDate(d.getDate() + 1);
+    }
+    res.json({ quizzes: result });
+  } catch (err) {
+    console.error('Admin daily quizzes list error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/admin/daily-quizzes/:date
+router.get('/daily-quizzes/:date', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { date } = req.params;
+    const { rows } = await pool.query('SELECT * FROM daily_quizzes WHERE quiz_date = $1', [date]);
+
+    if (!rows.length) return res.json({ date, questions: [] });
+
+    const ids = Array.isArray(rows[0].question_ids) ? rows[0].question_ids : (rows[0].question_ids || []);
+    if (!ids.length) return res.json({ date, questions: [] });
+
+    const { rows: questions } = await pool.query(
+      `SELECT q.id, q.question, q.category_id, c.name AS category_name, c.emoji AS category_emoji
+       FROM questions q JOIN categories c ON c.id = q.category_id
+       WHERE q.id = ANY($1::uuid[])`,
+      [ids]
+    );
+    const qMap = new Map(questions.map(q => [q.id, q]));
+    res.json({ date, questions: ids.map(id => qMap.get(id)).filter(Boolean) });
+  } catch (err) {
+    console.error('Admin daily quiz detail error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// PUT /api/admin/daily-quizzes/:date
+router.put('/daily-quizzes/:date', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { date } = req.params;
+    const { question_ids } = req.body;
+    if (!Array.isArray(question_ids)) return res.status(400).json({ error: 'question_ids must be array' });
+
+    await pool.query(
+      `INSERT INTO daily_quizzes (quiz_date, question_ids) VALUES ($1, $2)
+       ON CONFLICT (quiz_date) DO UPDATE SET question_ids = $2`,
+      [date, JSON.stringify(question_ids)]
+    );
+    await logAdminAction(pool, req.userId, null, 'update_daily_quiz', { date, count: question_ids.length });
+    res.json({ ok: true, date, count: question_ids.length });
+  } catch (err) {
+    console.error('Admin update daily quiz error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// POST /api/admin/daily-quizzes/schedule
+router.post('/daily-quizzes/schedule', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const days = Math.min(Number(req.body.days) || 30, 90);
+
+    let scheduled = 0;
+    let skipped = 0;
+
+    for (let i = 0; i < days; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() + i);
+      const dateStr = d.toISOString().slice(0, 10);
+
+      const { rows: existing } = await pool.query(
+        'SELECT question_ids FROM daily_quizzes WHERE quiz_date = $1', [dateStr]
+      );
+      if (existing.length) {
+        const ids = Array.isArray(existing[0].question_ids) ? existing[0].question_ids : [];
+        if (ids.length === DAILY_Q_COUNT) { skipped++; continue; }
+      }
+
+      const { rows: qRows } = await pool.query(
+        `SELECT id FROM questions WHERE active = true ORDER BY RANDOM() LIMIT $1`, [DAILY_Q_COUNT]
+      );
+      if (qRows.length < DAILY_Q_COUNT) { skipped++; continue; }
+
+      await pool.query(
+        `INSERT INTO daily_quizzes (quiz_date, question_ids) VALUES ($1, $2)
+         ON CONFLICT (quiz_date) DO UPDATE SET question_ids = $2`,
+        [dateStr, JSON.stringify(qRows.map(r => r.id))]
+      );
+      scheduled++;
+    }
+
+    await logAdminAction(pool, req.userId, null, 'schedule_daily_quizzes', { scheduled, skipped, days });
+    res.json({ ok: true, scheduled, skipped });
+  } catch (err) {
+    console.error('Admin schedule daily quizzes error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// GET /api/admin/questions/search?q=&exclude=id1,id2&limit=15
+router.get('/questions/search', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { q = '', limit = 15, exclude = '' } = req.query;
+    const excludeIds = exclude ? exclude.split(',').filter(id => id.trim()) : [];
+    const pattern = `%${q}%`;
+
+    let rows;
+    if (excludeIds.length > 0) {
+      ({ rows } = await pool.query(
+        `SELECT q.id, q.question, q.category_id, c.name AS category_name, c.emoji AS category_emoji
+         FROM questions q JOIN categories c ON c.id = q.category_id
+         WHERE q.active = true AND q.id != ALL($3::uuid[])
+           AND (q.question ILIKE $1 OR c.name ILIKE $1)
+         ORDER BY RANDOM() LIMIT $2`,
+        [pattern, Number(limit), excludeIds]
+      ));
+    } else {
+      ({ rows } = await pool.query(
+        `SELECT q.id, q.question, q.category_id, c.name AS category_name, c.emoji AS category_emoji
+         FROM questions q JOIN categories c ON c.id = q.category_id
+         WHERE q.active = true AND (q.question ILIKE $1 OR c.name ILIKE $1)
+         ORDER BY RANDOM() LIMIT $2`,
+        [pattern, Number(limit)]
+      ));
+    }
+    res.json({ questions: rows });
+  } catch (err) {
+    console.error('Admin question search error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;

@@ -364,11 +364,26 @@ export default function Admin() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [users, setUsers] = useState<AdminUser[]>([])
   const [powerups, setPowerups] = useState<any>(null)
-  const [tab, setTab] = useState<'overview' | 'users' | 'powerups'>('overview')
+  const [tab, setTab] = useState<'overview' | 'users' | 'powerups' | 'schedule'>('overview')
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<ModalState>(null)
+
+  // Daily quiz scheduling state
+  const [weekStart, setWeekStart] = useState<Date>(() => {
+    const d = new Date(); d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1)); d.setHours(0,0,0,0); return d
+  })
+  const [weekQuizzes, setWeekQuizzes] = useState<{ date: string; question_count: number; scheduled: boolean }[]>([])
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [dayQuestions, setDayQuestions] = useState<any[]>([])
+  const [dayLoading, setDayLoading] = useState(false)
+  const [saveBusy, setSaveBusy] = useState(false)
+  const [saveMsg, setSaveMsg] = useState('')
+  const [scheduleBusy, setScheduleBusy] = useState(false)
+  const [scheduleResult, setScheduleResult] = useState('')
+  const [questionSearch, setQuestionSearch] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
 
   useEffect(() => {
     api.auth.getUser().then(user => {
@@ -423,6 +438,81 @@ export default function Admin() {
     await api.admin.notify(user.id, message)
   }
 
+  // ── Daily quiz scheduling ──────────────────────────────────────
+
+  const DAY_ABBR = ['NED', 'PON', 'UTO', 'SRI', 'ČET', 'PET', 'SUB']
+
+  function weekEndDate(start: Date): Date {
+    const d = new Date(start); d.setDate(d.getDate() + 6); return d
+  }
+
+  function fmt(d: Date) {
+    return d.toISOString().slice(0, 10)
+  }
+
+  useEffect(() => {
+    if (tab !== 'schedule') return
+    const from = fmt(weekStart)
+    const to = fmt(weekEndDate(weekStart))
+    api.admin.dailyQuizzes(from, to).then(d => setWeekQuizzes(d.quizzes)).catch(() => {})
+  }, [tab, weekStart])
+
+  useEffect(() => {
+    if (!questionSearch.trim()) { setSearchResults([]); return }
+    const t = setTimeout(() => {
+      const excluded = dayQuestions.map((q: any) => q.id)
+      api.admin.searchQuestions(questionSearch, excluded).then(d => setSearchResults(d.questions)).catch(() => {})
+    }, 300)
+    return () => clearTimeout(t)
+  }, [questionSearch, dayQuestions])
+
+  async function selectDay(date: string) {
+    if (selectedDate === date) { setSelectedDate(null); return }
+    setSelectedDate(date)
+    setDayLoading(true)
+    setDayQuestions([])
+    setQuestionSearch('')
+    setSearchResults([])
+    setSaveMsg('')
+    try {
+      const d = await api.admin.dailyQuizDetail(date)
+      setDayQuestions(d.questions)
+    } finally {
+      setDayLoading(false)
+    }
+  }
+
+  async function saveDay() {
+    if (!selectedDate) return
+    setSaveBusy(true)
+    setSaveMsg('')
+    try {
+      const r = await api.admin.updateDailyQuiz(selectedDate, dayQuestions.map((q: any) => q.id))
+      setSaveMsg(`Spremljeno ${r.count} pitanja`)
+      const from = fmt(weekStart); const to = fmt(weekEndDate(weekStart))
+      api.admin.dailyQuizzes(from, to).then(d => setWeekQuizzes(d.quizzes)).catch(() => {})
+    } catch (err: any) {
+      setSaveMsg(err.message || 'Greška')
+    } finally {
+      setSaveBusy(false)
+    }
+  }
+
+  async function autoSchedule() {
+    setScheduleBusy(true)
+    setScheduleResult('')
+    try {
+      const r = await api.admin.scheduleDailyQuizzes(30)
+      setScheduleResult(`Raspoređeno ${r.scheduled} novih dana, ${r.skipped} preskočeno`)
+      const from = fmt(weekStart); const to = fmt(weekEndDate(weekStart))
+      api.admin.dailyQuizzes(from, to).then(d => setWeekQuizzes(d.quizzes)).catch(() => {})
+    } catch (err: any) {
+      setScheduleResult(err.message || 'Greška')
+    } finally {
+      setScheduleBusy(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -454,10 +544,11 @@ export default function Admin() {
             { key: 'overview', label: 'Overview' },
             { key: 'users', label: 'Users' },
             { key: 'powerups', label: 'Powerups' },
+            { key: 'schedule', label: 'Kvizovi' },
           ].map(item => (
             <button
               key={item.key}
-              onClick={() => setTab(item.key as 'overview' | 'users' | 'powerups')}
+              onClick={() => setTab(item.key as 'overview' | 'users' | 'powerups' | 'schedule')}
               className={`flex-1 py-2 font-mono text-[10px] font-bold uppercase tracking-widest rounded-[10px] ${tab === item.key ? '' : 'opacity-50'}`}
               style={tab === item.key ? { background: 'var(--ink)', color: '#fff', border: '1.5px solid var(--line)' } : {}}
             >
@@ -618,6 +709,173 @@ export default function Admin() {
               </div>
             </div>
           </>
+        )}
+
+        {tab === 'schedule' && (
+          <div className="space-y-3">
+            {/* Auto-schedule */}
+            <div className="btl sh-3 p-4" style={{ background: '#fff' }}>
+              <div className="font-mono text-[9px] font-bold uppercase tracking-widest opacity-60 mb-2">// AUTO-RASPORED</div>
+              <p className="font-mono text-[11px] opacity-60 mb-3">Automatski popuni dnevne kvizove za sljedećih 30 dana (preskače dane koji već imaju 30 pitanja).</p>
+              <button
+                onClick={autoSchedule}
+                disabled={scheduleBusy}
+                className="btn btn-primary w-full"
+              >
+                {scheduleBusy ? 'Raspoređujem...' : 'Auto-rasporedi 30 dana'}
+              </button>
+              {scheduleResult && (
+                <div className="mt-2 font-mono text-[11px] font-bold opacity-70">{scheduleResult}</div>
+              )}
+            </div>
+
+            {/* Week navigator */}
+            <div className="btl sh-3 overflow-hidden" style={{ background: '#fff' }}>
+              <div className="flex items-center justify-between px-3 py-2.5 border-b-[1.5px]" style={{ borderColor: 'rgba(0,0,0,.08)' }}>
+                <button
+                  onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d); setSelectedDate(null) }}
+                  className="btl btl-sm w-8 h-8 grid place-items-center"
+                  style={{ background: 'var(--paper)' }}
+                >
+                  <Icon name="back" className="w-3.5 h-3.5" stroke={2.2} />
+                </button>
+                <div className="font-mono text-[10px] font-bold uppercase tracking-widest">
+                  {weekStart.toLocaleDateString('hr', { day: 'numeric', month: 'short' })}
+                  {' – '}
+                  {weekEndDate(weekStart).toLocaleDateString('hr', { day: 'numeric', month: 'short' })}
+                </div>
+                <button
+                  onClick={() => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d); setSelectedDate(null) }}
+                  className="btl btl-sm w-8 h-8 grid place-items-center"
+                  style={{ background: 'var(--paper)', transform: 'scaleX(-1)' }}
+                >
+                  <Icon name="back" className="w-3.5 h-3.5" stroke={2.2} />
+                </button>
+              </div>
+              <div className="grid grid-cols-7">
+                {weekQuizzes.map(day => {
+                  const d = new Date(day.date + 'T00:00:00')
+                  const isToday = day.date === fmt(new Date())
+                  const isSelected = selectedDate === day.date
+                  return (
+                    <button
+                      key={day.date}
+                      onClick={() => selectDay(day.date)}
+                      className="flex flex-col items-center gap-0.5 py-2.5 border-r-[1.5px] last:border-r-0"
+                      style={{
+                        borderColor: 'rgba(0,0,0,.06)',
+                        background: isSelected ? 'var(--ink)' : isToday ? 'var(--accent-soft)' : undefined,
+                        color: isSelected ? '#fff' : undefined,
+                      }}
+                    >
+                      <div className="font-mono text-[8px] font-bold uppercase opacity-60">{DAY_ABBR[d.getDay()]}</div>
+                      <div className="font-display text-[17px] leading-none">{d.getDate()}</div>
+                      <div
+                        className="w-1.5 h-1.5 rounded-full mt-0.5"
+                        style={{ background: day.scheduled ? '#22c55e' : 'rgba(0,0,0,.15)' }}
+                      />
+                      {day.scheduled && (
+                        <div className="font-mono text-[8px] opacity-50">{day.question_count}</div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Selected day question editor */}
+            {selectedDate && (
+              <div className="btl sh-3 overflow-hidden" style={{ background: '#fff' }}>
+                <div className="px-3 py-2.5 border-b-[1.5px] flex items-center gap-2" style={{ borderColor: 'rgba(0,0,0,.08)' }}>
+                  <div className="flex-1">
+                    <div className="font-display text-[15px]">
+                      {new Date(selectedDate + 'T00:00:00').toLocaleDateString('hr', { weekday: 'long', day: 'numeric', month: 'long' })}
+                    </div>
+                  </div>
+                  <span className="chip">{dayQuestions.length} Q</span>
+                  <button
+                    onClick={saveDay}
+                    disabled={saveBusy}
+                    className="btl btl-sm px-3 py-1.5 font-mono text-[10px] font-bold uppercase tracking-widest"
+                    style={{ background: 'var(--ink)', color: '#fff', borderWidth: 2, boxShadow: '2px 2px 0 0 var(--line)' }}
+                  >
+                    {saveBusy ? '...' : 'Spremi'}
+                  </button>
+                </div>
+
+                {saveMsg && (
+                  <div className="px-3 py-2 font-mono text-[10px] font-bold" style={{ background: '#bbf7d0', borderBottom: '1px solid #16a34a' }}>
+                    {saveMsg}
+                  </div>
+                )}
+
+                {dayLoading ? (
+                  <div className="p-6 font-mono text-[11px] opacity-40 text-center">Učitavam...</div>
+                ) : (
+                  <>
+                    <div className="divide-y" style={{ maxHeight: 280, overflowY: 'auto' }}>
+                      {dayQuestions.map((q: any) => (
+                        <div key={q.id} className="flex items-center gap-2 px-3 py-2">
+                          <span className="text-[14px] shrink-0">{q.category_emoji}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-mono text-[10.5px] opacity-80" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {q.question}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => setDayQuestions(prev => prev.filter((x: any) => x.id !== q.id))}
+                            className="btl btl-sm w-6 h-6 grid place-items-center shrink-0"
+                            style={{ background: '#fecaca', borderWidth: 1.5 }}
+                          >
+                            <Icon name="x" className="w-3 h-3" stroke={2.5} />
+                          </button>
+                        </div>
+                      ))}
+                      {dayQuestions.length === 0 && (
+                        <div className="p-5 font-mono text-[11px] opacity-40 text-center">Nema pitanja za ovaj dan</div>
+                      )}
+                    </div>
+
+                    {/* Add questions */}
+                    <div className="border-t-[1.5px] p-3" style={{ borderColor: 'rgba(0,0,0,.08)' }}>
+                      <div className="font-mono text-[9px] font-bold uppercase tracking-widest opacity-50 mb-2">// DODAJ PITANJE</div>
+                      <input
+                        value={questionSearch}
+                        onChange={e => setQuestionSearch(e.target.value)}
+                        placeholder="Pretraži pitanja..."
+                        className="w-full btl btl-sm px-3 py-2 font-mono text-[11px]"
+                        style={{ background: 'var(--paper)', outline: 'none' }}
+                      />
+                      {searchResults.length > 0 && (
+                        <div className="mt-2 space-y-1" style={{ maxHeight: 200, overflowY: 'auto' }}>
+                          {searchResults.map((q: any) => (
+                            <button
+                              key={q.id}
+                              onClick={() => {
+                                if (!dayQuestions.find((x: any) => x.id === q.id)) {
+                                  setDayQuestions(prev => [...prev, q])
+                                }
+                                setQuestionSearch('')
+                                setSearchResults([])
+                              }}
+                              className="w-full btl btl-sm flex items-center gap-2 px-2 py-1.5 text-left"
+                              style={{ background: 'var(--paper)' }}
+                            >
+                              <span className="text-[13px] shrink-0">{q.category_emoji}</span>
+                              <span className="flex-1 min-w-0 font-mono text-[10px] opacity-80" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {q.question}
+                              </span>
+                              <Icon name="check" className="w-3.5 h-3.5 shrink-0 opacity-40" stroke={2.5} />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

@@ -178,5 +178,21 @@ export const api = {
       if (params?.page) qs.set('page', String(params.page))
       return apiFetch<{ questions: any[]; total: number }>(`/admin/questions?${qs}`)
     },
+    searchQuestions: (q: string, exclude: string[] = []) =>
+      apiFetch<{ questions: any[] }>(`/admin/questions/search?q=${encodeURIComponent(q)}&exclude=${exclude.join(',')}`),
+    dailyQuizzes: (from: string, to: string) =>
+      apiFetch<{ quizzes: { date: string; question_count: number; scheduled: boolean }[] }>(`/admin/daily-quizzes?from=${from}&to=${to}`),
+    dailyQuizDetail: (date: string) =>
+      apiFetch<{ date: string; questions: any[] }>(`/admin/daily-quizzes/${date}`),
+    updateDailyQuiz: (date: string, question_ids: string[]) =>
+      apiFetch<{ ok: boolean; date: string; count: number }>(`/admin/daily-quizzes/${date}`, {
+        method: 'PUT',
+        body: JSON.stringify({ question_ids }),
+      }),
+    scheduleDailyQuizzes: (days = 30) =>
+      apiFetch<{ ok: boolean; scheduled: number; skipped: number }>('/admin/daily-quizzes/schedule', {
+        method: 'POST',
+        body: JSON.stringify({ days }),
+      }),
   },
 }
