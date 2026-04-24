@@ -30,6 +30,8 @@ export default function Icon({ name, className = 'w-5 h-5', stroke = 2.3 }: Icon
       return <svg {...common}><path d="M3 7c0-1 1-2 2-2h14c1 0 2 1 2 2v3c0 5-4 10-9 10S3 15 3 10V7z" /><circle cx="9" cy="11" r="1.5" /><circle cx="15" cy="11" r="1.5" /></svg>
     case 'mail':
       return <svg {...common}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></svg>
+    case 'bell':
+      return <svg {...common}><path d="M6 8a6 6 0 1 1 12 0c0 6 2 7 2 7H4s2-1 2-7" /><path d="M10 19a2 2 0 0 0 4 0" /></svg>
     case 'globe-alt':
       return <svg {...common}><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></svg>
     case 'crown':

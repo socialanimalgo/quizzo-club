@@ -20,6 +20,8 @@ export function useNotificationSummary() {
     tick()
     const id = window.setInterval(tick, 30_000)
     window.addEventListener('focus', tick)
+    const refresh = () => tick()
+    window.addEventListener('quizzo.notifications.refresh', refresh)
 
     if (streamUrl) {
       stream = new EventSource(streamUrl)
@@ -36,6 +38,7 @@ export function useNotificationSummary() {
       mounted = false
       clearInterval(id)
       window.removeEventListener('focus', tick)
+      window.removeEventListener('quizzo.notifications.refresh', refresh)
       stream?.close()
     }
   }, [])

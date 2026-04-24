@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import Home from './pages/Home'
 import SignIn from './pages/SignIn'
 import SignUp from './pages/SignUp'
@@ -22,12 +22,28 @@ import LoadingScreen from './components/LoadingScreen'
 import PageTransition from './components/PageTransition'
 import BottomNav from './components/BottomNav'
 import { WalletProvider, useWallet } from './context/WalletContext'
+import GameInvitePopup from './components/GameInvitePopup'
+
+type PendingInvite = {
+  id: string
+  notificationId: string
+  type: 'kvizopoli' | 'vs'
+  fromDisplayName: string
+  roomCode?: string
+  currentPlayers?: number
+  maxPlayers?: number
+  challengeId?: string
+}
 
 function AppShell() {
   const location = useLocation()
+  const navigate = useNavigate()
   const previousPath = useRef(location.pathname)
   const [booting, setBooting] = useState(false)
   const [transitioning, setTransitioning] = useState(false)
+  const [inviteQueue, setInviteQueue] = useState<PendingInvite[]>([])
+  const [inviteBusy, setInviteBusy] = useState(false)
+  const [inviteError, setInviteError] = useState('')
   const { user } = useWallet()
 
   useEffect(() => {
@@ -48,6 +64,93 @@ function AppShell() {
     previousPath.current = location.pathname
     setTransitioning(true)
   }, [location.pathname])
+
+  useEffect(() => {
+    if (!user) {
+      setInviteQueue([])
+      setInviteError('')
+      return
+    }
+
+    const isGameplayRoute = (pathname: string) => pathname.startsWith('/quiz') || pathname.startsWith('/kvizopoli')
+    const streamUrl = api.notifications.streamUrl()
+    if (!streamUrl) return
+
+    const stream = new EventSource(streamUrl)
+    const pushInvite = (invite: PendingInvite) => {
+      setInviteQueue(current => {
+        if (current.some(item => item.id === invite.id || item.notificationId === invite.notificationId)) return current
+        return [invite, ...current]
+      })
+    }
+
+    stream.addEventListener('notification', event => {
+      try {
+        const notification = JSON.parse((event as MessageEvent).data)
+        if (isGameplayRoute(window.location.pathname)) return
+
+        if (notification.type === 'kvizopoli_invite') {
+          pushInvite({
+            id: notification.id,
+            notificationId: notification.id,
+            type: 'kvizopoli',
+            fromDisplayName: notification.data?.from_display_name || notification.title?.replace(/\s+te poziva.*$/i, '') || 'Igrač',
+            roomCode: notification.data?.join_code,
+            currentPlayers: notification.data?.current_players,
+            maxPlayers: notification.data?.max_players,
+          })
+        }
+
+        if (notification.type === 'challenge_received' || notification.type === 'challenge_invite') {
+          pushInvite({
+            id: notification.id,
+            notificationId: notification.id,
+            type: 'vs',
+            fromDisplayName: notification.data?.from_display_name || notification.title?.replace(/\s+te izaziva.*$/i, '') || 'Igrač',
+            challengeId: notification.data?.challenge_id,
+          })
+        }
+      } catch {}
+    })
+
+    return () => stream.close()
+  }, [user])
+
+  const currentInvite = inviteQueue[0] || null
+
+  async function acceptInvite() {
+    if (!currentInvite) return
+    try {
+      setInviteBusy(true)
+      setInviteError('')
+
+      if (currentInvite.type === 'kvizopoli') {
+        if (!currentInvite.roomCode) throw new Error('Kod sobe nedostaje')
+        await api.notifications.markRead(currentInvite.notificationId).catch(() => {})
+        window.dispatchEvent(new Event('quizzo.notifications.refresh'))
+        setInviteQueue(current => current.filter(item => item.id !== currentInvite.id))
+        navigate(`/kvizopoli?code=${encodeURIComponent(currentInvite.roomCode)}`)
+        return
+      }
+
+      if (!currentInvite.challengeId) throw new Error('Izazov nije dostupan')
+      const data = await api.challenges.acceptById(currentInvite.challengeId)
+      await api.notifications.markRead(currentInvite.notificationId).catch(() => {})
+      window.dispatchEvent(new Event('quizzo.notifications.refresh'))
+      setInviteQueue(current => current.filter(item => item.id !== currentInvite.id))
+      navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id, category_id: data.category_id }, returnTo: '/notifications' } })
+    } catch (err: any) {
+      setInviteError(err.message || 'Pozivnica nije dostupna')
+    } finally {
+      setInviteBusy(false)
+    }
+  }
+
+  function dismissInvite() {
+    if (!currentInvite) return
+    setInviteError('')
+    setInviteQueue(current => current.filter(item => item.id !== currentInvite.id))
+  }
 
   const showBottomNav = Boolean(user) && ['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily', '/shop', '/categories'].includes(location.pathname)
 
@@ -77,6 +180,7 @@ function AppShell() {
         </Routes>
       </div>
       {showBottomNav && <BottomNav />}
+      <GameInvitePopup invite={currentInvite} busy={inviteBusy} error={inviteError} onAccept={acceptInvite} onDismiss={dismissInvite} />
       <PageTransition show={transitioning} onDone={() => setTransitioning(false)} />
       {booting && <LoadingScreen full />}
     </div>

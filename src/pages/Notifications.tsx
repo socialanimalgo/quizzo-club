@@ -66,11 +66,13 @@ export default function Notifications() {
 
   async function markAllRead() {
     await api.notifications.markAllRead()
+    window.dispatchEvent(new Event('quizzo.notifications.refresh'))
     await load(filter)
   }
 
   async function markRead(id: string) {
     await api.notifications.markRead(id)
+    window.dispatchEvent(new Event('quizzo.notifications.refresh'))
     await load(filter)
   }
 

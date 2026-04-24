@@ -5,6 +5,7 @@ import QuizzoLogo from '../components/QuizzoLogo'
 import Icon from '../components/Icon'
 import { useWallet } from '../context/WalletContext'
 import { CORE_CATEGORIES, HOT_TOPIC } from '../data/categories'
+import { useNotificationSummary } from '../hooks/useNotificationSummary'
 
 const WELCOME_TILES = [
   { icon: 'globe', hue: 220 },
@@ -18,6 +19,7 @@ const WELCOME_TILES = [
 export default function Home() {
   const navigate = useNavigate()
   const { wallet, user: walletUser } = useWallet()
+  const { unread } = useNotificationSummary()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [dailyDone, setDailyDone] = useState(false)
@@ -153,6 +155,22 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => navigate('/notifications')}
+                aria-label="Obavijesti"
+                className="relative w-9 h-9 btl btl-sm sh-2 grid place-items-center"
+                style={{ background: '#fff' }}
+              >
+                <Icon name="bell" className="w-4 h-4" stroke={2.1} />
+                {unread > 0 && (
+                  <span
+                    className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full grid place-items-center font-mono text-[9px] font-bold"
+                    style={{ background: '#ef4444', color: '#fff', border: '1.5px solid var(--line)' }}
+                  >
+                    {Math.min(unread, 99)}
+                  </span>
+                )}
+              </button>
               <button
                 onClick={() => navigate('/shop')}
                 aria-label="Shop"
