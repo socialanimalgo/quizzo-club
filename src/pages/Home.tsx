@@ -135,10 +135,14 @@ export default function Home() {
   const xp = myRank?.xp ?? 0
   const rank = myRank?.rank ?? '–'
   const displayUser = walletUser || user
+  const headerHeight = 104
 
   return (
     <div className="min-h-screen flex flex-col overflow-hidden" style={{ background: 'var(--paper)' }}>
-      <div className="sticky top-0 z-30 shrink-0" style={{ background: 'var(--paper)' }}>
+      <div
+        className="fixed inset-x-0 top-0 z-40"
+        style={{ background: 'var(--paper)', paddingTop: 'env(safe-area-inset-top)' }}
+      >
         <header className="px-4 pt-4 pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -149,6 +153,14 @@ export default function Home() {
               </div>
             </div>
             <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => navigate('/shop')}
+                aria-label="Shop"
+                className="w-9 h-9 btl btl-sm sh-2 grid place-items-center"
+                style={{ background: '#fff' }}
+              >
+                <Icon name="crown" className="w-4 h-4" stroke={2.1} />
+              </button>
               <button onClick={() => navigate('/shop')} className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fff' }}>
                 <span className="font-mono font-bold text-[12px] tabular">{wallet.coins}</span>
                 <span className="font-mono text-[11px] opacity-60">COIN</span>
@@ -190,6 +202,7 @@ export default function Home() {
       </div>
 
       <div className="flex-1 overflow-y-auto no-scrollbar app-scroll-with-nav">
+        <div style={{ height: `calc(${headerHeight}px + env(safe-area-inset-top))` }} />
         <div className="px-4 pt-4 pb-3">
           <div className="flex items-baseline justify-between mb-1">
             <h1 className="font-display text-[26px] leading-none tracking-tight">Hej, {user.first_name}!</h1>
