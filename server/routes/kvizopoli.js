@@ -396,9 +396,9 @@ router.post('/create', async (req, res) => {
       `INSERT INTO kvizopoli_matches (
          join_code, host_user_id, status, phase, players, board_spaces, active_player_id, duration_ms, ends_at
        )
-       VALUES ($1, $2, 'active', 'waiting_to_roll', $3, $4, $2, $5, NOW() + ($5 || ' milliseconds')::interval)
+       VALUES ($1, $2, 'active', 'waiting_to_roll', $3, $4, $2, $5, NOW() + ($6 * INTERVAL '1 millisecond'))
        RETURNING id`,
-      [joinCode, user.id, JSON.stringify(players), JSON.stringify(buildBoardSpaces()), MATCH_DURATION_MS]
+      [joinCode, user.id, JSON.stringify(players), JSON.stringify(buildBoardSpaces()), MATCH_DURATION_MS, MATCH_DURATION_MS]
     );
 
     const match = await loadMatch(pool, rows[0].id);
