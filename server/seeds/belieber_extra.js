@@ -1,0 +1,440 @@
+// Run: node server/seeds/belieber_extra.js
+// Adds 360+ additional Belieber questions (brings total to ~500+)
+
+try { require('dotenv').config(); } catch {}
+const { Pool } = require('pg');
+const { shuffleQuestionOptions } = require('../lib/questions');
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgresql://localhost/quizzo',
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+});
+
+function q(question, options, correct, difficulty = 'medium') {
+  return { question, options, correct_index: correct, difficulty };
+}
+
+const questions = [
+
+  // ─── RANA KARIJERA I DJETINJSTVO ─────────────────────────────────────────
+  q('U kojoj je pokrajini Kanade Justin Bieber odrastao?', ['Ontario','British Columbia','Quebec','Alberta'], 0, 'easy'),
+  q('Justinova mama Pattie Mallette imala je koliko godina kada se Justin rodio?', ['18','16','20','22'], 0, 'hard'),
+  q('Koji je Justinov otac po imenu?', ['Jeremy Bieber','Jason Bieber','James Bieber','Jonathan Bieber'], 0, 'medium'),
+  q('Justin Bieber je sam, bez učitelja, naučio svirati bubnjeve. Točno ili netočno?', ['Točno','Netočno — imao je učitelja','Točno, ali samo klavir','Netočno — nije svirao bubnjeve'], 0, 'medium'),
+  q('Koji je Justinov YouTube kanal na kojemu je objavljivao coverse?', ['kidrauhl','justinbieber','biebertv','jbofficial'], 0, 'medium'),
+  q('Koja je prva javna izvedba Justina Biebera bila na kojemu natjecanju?', ['Lokalno pjevačko natjecanje u Stratfordu','Canadians Got Talent','X Factor Canada','American Idol'], 0, 'hard'),
+  q('Scooter Braun je pronašao Justina tražeći videozapis koga na YouTubeu?', ['Justina Timberlakea','Ne — tražio je Justina Biebera','Ushera','Ne — Justin je sam kontaktirao Scootera'], 1, 'hard'),
+  q('Justin Bieber je po nacionalnosti:', ['Kanadanin','Amerikanac','Britanac','Australac'], 0, 'easy'),
+  q('Koji sport je mladi Justin Bieber igrao u Stratfordu?', ['Hokej na ledu','Košarka','Američki nogomet','Bejzbol'], 0, 'medium'),
+  q('Justinova mama Pattie Mallette napisala je memoare. Kako se knjiga zove?', ['Nowhere But Up','My World','Never Say Never','Pattie'], 0, 'hard'),
+  q('U kojoj je godini Justin Bieber otputovao u Atlantu da se sretne s Usherom?', ['2008','2007','2009','2006'], 0, 'hard'),
+  q('Scooter Braun je Justina predstavio Usheru. Gdje su se sreli?', ['U studiju u Atlanti','Na natjecanju u Kanadi','Na YouTubeu (online)','Na dodjeli nagrade'], 0, 'hard'),
+  q('Koliko je Justin Bieber imao godina kada je potpisao ugovor s RBMG Records?', ['14','13','15','12'], 0, 'medium'),
+  q('Koji je bio Justinov prvi singl ikad?', ['One Time','Baby','Love Me','Common Denominator'], 0, 'easy'),
+  q('Kada je izašao "One Time" — Justinov debitantski singl?', ['2009','2008','2010','2007'], 0, 'easy'),
+  q('Na kojoj ljestvici je "One Time" dostigao #12 pri debiju?', ['Billboard Hot 100','UK Singles Chart','Canadian Hot 100','Australian ARIA'], 0, 'medium'),
+  q('Koji je video za "One Time" imao više od million pregleda za koliko dana?', ['7 dana','3 dana','30 dana','14 dana'], 0, 'hard'),
+  q('Koji je Justinov prvi EP?', ['My World','One Time EP','Baby EP','Journals'], 0, 'easy'),
+  q('My World EP (2009) — koliko je kopija prodano u SAD-u u prvom tjednu?', ['Više od 137.000','Oko 50.000','Više od 200.000','Oko 100.000'], 0, 'hard'),
+
+  // ─── ALBUMI I DISKOGRAFIJA ────────────────────────────────────────────────
+  q('Koji je Justinov prvi pravi studijski album (ne EP)?', ['My World 2.0','My World','Believe','Never Say Never'], 0, 'easy'),
+  q('Kada je izašao album "My World 2.0"?', ['2010','2009','2011','2012'], 0, 'easy'),
+  q('Koji hit se nalazi na "My World 2.0"?', ['Baby','One Time','Mistletoe','As Long as You Love Me'], 0, 'easy'),
+  q('Kako se zove Justinov božićni album iz 2011.?', ['Under the Mistletoe','Christmas with Bieber','Jingle Biebs','Believe Acoustic'], 0, 'easy'),
+  q('Koji album je Justin objavio 2012. i smatra se njegovim "odraslim" albumom?', ['Believe','Purpose','Changes','Journals'], 0, 'easy'),
+  q('Na kojemu albumu se nalazi "As Long as You Love Me"?', ['Believe','My World 2.0','Purpose','Changes'], 0, 'medium'),
+  q('Koji je Justinov "mixtape" EP objavljen 2013. kao alternativa studijskom albumu?', ['Journals','Believe Acoustic','Seasons','Never Say Never'], 0, 'medium'),
+  q('Koji je Justinov comeback album iz 2015. koji je obnovio njegovu karijeru?', ['Purpose','Changes','Justice','Believe 2'], 0, 'easy'),
+  q('Koliko je dana "Purpose" bio broj 1 na Billboard 200?', ['Tri tjedna (3 tjedna)','Jedan tjedan','Sedam tjedana','Dva tjedna'], 0, 'hard'),
+  q('Koji je album Justin Bieber objavio na Valentinovo 2020.?', ['Changes','Justice','Purpose','Journals'], 0, 'easy'),
+  q('Koji je Justinov album s 2021. nazvan po idealu pravde i jednakosti?', ['Justice','Changes','Freedom','Purpose'], 0, 'easy'),
+  q('Na kojemu albumu se nalazi "Peaches"?', ['Justice','Changes','Purpose','Believe'], 0, 'easy'),
+  q('Na kojemu albumu se nalazi "Yummy"?', ['Changes','Justice','Purpose','Journals'], 0, 'easy'),
+  q('Koji je album uključivao posebnu verziju s duetima s Danielom Caesarom i drugima?', ['Justice (Trip Edition)','Changes Deluxe','Purpose Deluxe','Believe Acoustic'], 0, 'hard'),
+  q('Justin Bieber je 2022. objavio EP pod kojim nazivom?', ['Freedom','Honest','Ghost','Changes EP'], 0, 'hard'),
+  q('Koji Justinov album sadrži pjesmu "Intentions"?', ['Changes','Justice','Purpose','Believe'], 0, 'medium'),
+  q('Na kojemu se albumu nalazi "Holy"?', ['Justice','Changes','Purpose','Journals'], 0, 'medium'),
+  q('Koji je Justinov album snimljen u kršćanskom duhu i pun vjere?', ['Justice','Purpose','Changes','Believe'], 1, 'medium'),
+  q('Koji je produktor radio na albumu "Purpose" uz Justina?', ['Skrillex i Diplo (kao Jack Ü)','Dr. Dre','Max Martin i Rick Rubin','Pharrell Williams'], 0, 'hard'),
+  q('Koliko je studijskih albuma Justin Bieber objavio do 2023.?', ['5','4','6','7'], 0, 'medium'),
+
+  // ─── HITOVI I PJESME ─────────────────────────────────────────────────────
+  q('Tko gostuje na hitu "Baby" (2010)?', ['Ludacris','Drake','Lil Wayne','Jay-Z'], 0, 'easy'),
+  q('"Baby" je dugo bio jedan od najgledanijih YouTube videa. Na kojemu je mjestu po pregledima bio godinama?', ['Medu top 5 svih vremena (jedno doba #1)','Top 50','Top 20','Top 10 ali ne #1'], 0, 'medium'),
+  q('Koji je Justinov singl prvi dostigao #1 na Billboard Hot 100?', ['What Do You Mean?','Sorry','Love Yourself','Baby'], 0, 'medium'),
+  q('Kada je "What Do You Mean?" izašao?', ['2015','2014','2016','2013'], 0, 'easy'),
+  q('Tko je napisao "Love Yourself" zajedno s Justinom Bieberom?', ['Ed Sheeran','Taylor Swift','Sam Smith','Charlie Puth'], 0, 'easy'),
+  q('Koji je stih iz "Sorry" koji je postao meme/catchphrase?', ['"Is it too late now to say sorry?"','"Baby baby baby oh"','"What do you mean?"','"I need somebody to love"'], 0, 'easy'),
+  q('Koji je Justinov hit iz 2021. s The Kid LAROI?', ['Stay','Ghost','Peaches','Holy'], 0, 'easy'),
+  q('"Stay" (2021) s The Kid LAROI — koliko tjedana je proveo na #1 Billboard Hot 100?', ['7 tjedana','3 tjedna','10 tjedana','1 tjedan'], 0, 'hard'),
+  q('Koji je Justinov duet s Ariom Starr iz 2022.?', ['Die For You (Starboy remix) — ne, to je The Weeknd. Justin je snimio "Honest" s Don Toleveom','Honest','Ghost remix','As I Am'], 1, 'hard'),
+  q('Koji je Justinov singl bio #1 u 98 zemalja na Spotifyju?', ['Baby (u ono doba)','Stay (s LAROI)','Peaches','Sorry'], 1, 'hard'),
+  q('U kojemu je glazbenom videu Justin Bieber prikazan u crno-bijeloj estetici s Hailey?', ['Anyone (2021)','Holy','Yummy','Changes'], 0, 'medium'),
+  q('Koji Justinov hit sadrži stih "I got it all, but I feel so deprived"?', ['Lonely','Ghost','Anyone','Changes'], 0, 'hard'),
+  q('Tko je napisao i producirao "What Do You Mean?"?', ['Jason "Poo Bear" Boyd i Justin Bieber','Ed Sheeran','Skrillex','Max Martin'], 0, 'hard'),
+  q('Koji je Justinov kršćanski gospel-pop singl iz 2020. s Chance the Rapperom?', ['Holy','10,000 Hours','Intentions','Anyone'], 0, 'easy'),
+  q('Koji je Justinov singl za Dan zaljubljenih 2021. u kojemu glumi romantičnu priču?', ['Anyone','Holy','Lonely','Peaches'], 0, 'medium'),
+  q('"Lonely" (2020) s Benny Blancom — o kojoj je temi ta pjesma?', ['Osamljenosti i teškoćama slave u mladosti','Ljubavnoj boli','Vjeri','Ovisnosti'], 0, 'medium'),
+  q('Koji je Justinov "tropical pop" ljetni hit s Diplo i MØ?', ['Cold Water','Let Me Love You','Sorry (acoustic)','What Do You Mean? remix'], 0, 'medium'),
+  q('Na kojoj pjesmi je Justin Bieber radio s Davidom Guettom?', ['2U','Let Me Love You','One Dance remix','Sorry remix'], 0, 'easy'),
+  q('Koji je Justinov hit koji sadrži frazу "I know you care"?', ['Mistletoe','Never Let You Go','One Less Lonely Girl','First Dance'], 0, 'hard'),
+  q('Koji je Justinov zajednički singl s Shawnom Mendesom iz 2021.?', ['Monster','Ghost','Holy','Anyone'], 0, 'easy'),
+
+  // ─── TURNEJE I NASTUPI ────────────────────────────────────────────────────
+  q('Kako se zvala Justinova prva velika headlining turneja?', ['My World Tour','Believe Tour','Purpose World Tour','Baby Tour'], 0, 'easy'),
+  q('Koliko je gradova obuhvatila Purpose World Tour (2016–2017)?', ['Više od 150 gradova','Oko 50','Oko 100','Više od 200'], 0, 'hard'),
+  q('Zbog čega je Justin Bieber otkazao ostatak Purpose World Tour 2017.?', ['Osobni razlozi i iscrpljenost / mentalno zdravlje','Ozljeda noge','Bolest grla','Pandemija'], 0, 'medium'),
+  q('Koja je Justinova turneja dokumentirana u Netflix seriji "Seasons"?', ['Changes Tour (koja nije završena zbog Covida)','Purpose World Tour','Believe Tour','My World Tour'], 0, 'medium'),
+  q('Justin Bieber je nastupao na Super Bowl halftime showu. Točno ili netočno?', ['Netočno — nije nastupao kao headliner','Točno, 2020.','Točno, 2016.','Netočno — nastupao je samo kao gost'], 0, 'easy'),
+  q('Na kojemu je glazbenom festivalu Justin Bieber iznenadio nastupom uz Tylera the Creatora 2025.?', ['Coachella','Glastonbury','Lollapalooza','Rolling Loud'], 0, 'easy'),
+  q('Koji je Justinov One Time nastup na Oprah Winfrey showu bio poseban po čemu?', ['Jedan od prvih TV nastupa — pomogao je popularizirati karijeru','Pao je s pozornice','Opra ga je plakala gledajući','Pjevao je a cappella'], 0, 'hard'),
+  q('Koliko je karata prodano u prvom satu kada je Justin Bieber objavio Believe Tour?', ['Rasprodale u minutama za veće gradove','50.000','100.000','200.000'], 0, 'hard'),
+  q('Koja je Justinova turneja zbog koje je bio optužen da pljuje na fanove?', ['Believe Tour 2012–2013','My World Tour','Purpose World Tour','Changes Tour'], 0, 'hard'),
+  q('Koji je Justin Bieber Amazon Prime Document o posljednjem koncertu?', ['Justin Bieber: Our World (2021)','Seasons','Never Say Never','Justin Bieber: Believe'], 0, 'medium'),
+
+  // ─── SELENA GOMEZ I ROMANTIČNI ŽIVOT ─────────────────────────────────────
+  q('Kada su Justin Bieber i Selena Gomez prvi puta počeli hodati?', ['Krajem 2010. / početkom 2011.','2012.','2009.','2013.'], 0, 'medium'),
+  q('Koliko su se puta Justin i Selena razdvajali i vraćali (otprilike)?', ['Više od 3 puta','Jedanput','Dvaput','Nikad — bili zajedno do kraja'], 0, 'medium'),
+  q('Koji je hit Justina Biebera mnogi smatraju pismom Seleni Gomez?', ['Love Yourself','Sorry','What Do You Mean?','Yummy'], 0, 'medium'),
+  q('Na kojoj lokaciji su Justin i Selena često viđeni zajedno (park/odmorište)?', ['Disneyland / Los Angeles','New York Central Park','Miami Beach','Las Vegas'], 0, 'hard'),
+  q('U kojoj godini su Justin i Selena definitivno prekinuli vezu?', ['2018','2017','2016','2019'], 0, 'medium'),
+  q('Kako se zove Justinova supruga?', ['Hailey Baldwin Bieber','Hailey James','Haley Stevens','Haley Bieber'], 0, 'easy'),
+  q('Čiji je Hailey Bieber sin/kći (njezin otac)?', ['Stephen Baldwin (glumac)','Alec Baldwin','Billy Baldwin','Daniel Baldwin'], 0, 'medium'),
+  q('U kojemu su se gradu Justin i Hailey vjenčali sudbeno (potpisali papire) 2018.?', ['New York City','Los Angeles','Toronto','Miami'], 0, 'medium'),
+  q('Gdje je bila crkvena ceremonija vjenčanja Justina i Hailey 2019.?', ['Bluffton, South Carolina','Malibu, Kalifornija','New York City','Toronto, Kanada'], 0, 'hard'),
+  q('Hailey Bieber je poznata manekenka. Za koji je modni brend posebno reklamirala?', ['Tommy Hilfiger, Ralph Lauren i mnogi drugi','Chanel','Louis Vuitton','Prada'], 0, 'hard'),
+  q('Koja je Haileyina roditeljska slava — njezin ujak?', ['Alec Baldwin','Stephen Baldwin','Billy Baldwin','Daniel Baldwin'], 1, 'hard'),
+  q('Justin Bieber je imao kratku vezu s kojom modelom 2015–2016 (između Selene)?', ['Hailey Baldwin','Sofia Richie','Kourtney Kardashian','Bella Hadid'], 0, 'hard'),
+  q('Justin je poklonio Hailey vjenčani prsten procijenjene vrijednosti koliko?', ['Oko 500.000 dolara','Oko 100.000 dolara','Oko 1 milijun dolara','Oko 50.000 dolara'], 0, 'hard'),
+  q('Selena Gomez je napisala i objavila pjesmu "Lose You to Love Me" za koga?', ['O prekidu s Justinom (kako je mnogi tumače)','O gubitku prijatelja','O bolesti','O obitelji'], 0, 'medium'),
+
+  // ─── SKANDALI I DRAMA ─────────────────────────────────────────────────────
+  q('U kojemu je gradu Justin Bieber uhićen zbog DUI (vožnje pod utjecajem) 2014.?', ['Miami, Florida','Los Angeles','Toronto','Las Vegas'], 0, 'medium'),
+  q('Što je Justin Bieber radio u trenutku uhićenja u Miamiju 2014.?', ['Vozio drag race unajmljenim Lamborghinijem','Vozio pijan biciklom','Tukao se na ulici','Pucao iz auta'], 0, 'medium'),
+  q('Koja je Justinova kazna bila za Miami DUI incident?', ['Plaćanje kazne i probacija — nije zatvoren','Zatvor 6 mjeseci','Deportacija u Kanadu','Zabrana vožnje 5 godina'], 0, 'hard'),
+  q('Što je Justin Bieber bacao na susjeda u Calabasasu 2014.?', ['Jaja','Kamenje','Boce vode','Farbu'], 0, 'easy'),
+  q('Koliko je morao platiti odštete za incident s jajima?', ['Više od 80.000 dolara','5.000 dolara','500.000 dolara','Ništa — riješeno nagodbi'], 0, 'hard'),
+  q('Koji je incident s majmunom u Europi izazvao veliku pažnju medija 2013.?', ['Majmun OJ je zaplijenjen na carinikama u Münchenu','Majmun ga je ugrizao na koncertu','Majmun je pojeo paparaca','Majmun je bio na pozornici'], 0, 'easy'),
+  q('Kako se zvao Justinov zaplijenjeni majmun u Münchenu?', ['OJ','Mojo','Biebo','Captain Jack'], 0, 'medium'),
+  q('Justin Bieber je 2013. pljunuo s balkona hotela. Gdje se to dogodilo?', ['Toronto (prema dolje na fanove/paparazze)','Miami','Los Angeles','New York'], 0, 'hard'),
+  q('Justin Bieber je uhićen u Kanadi 2014. zbog čega?', ['Napad (assault) na vozača limuzine','Krađe','Razbojništva','Posjedovanja droge'], 0, 'hard'),
+  q('Justin je 2013. posjetio Anne Frank kuću u Amsterdamu i napisao kontroverzni komentar u knjizi gostiju. Što je napisao?', ['"Nadam se da bi bila Belieber" — smatrano neosjetljivim','Isprika holokaustim žrtvama','Pohvala Anne Frank','Komentar o miru u svijetu'], 0, 'medium'),
+  q('Justin Bieber je 2016. skinuo račun s Instagrama. Zbog čega?', ['Fanovi su napadali Sofiu Richie u komentarima','Hailey ga je zamolila','Zbog Selenina posting-a','Zbog problema s privatnošću'], 0, 'medium'),
+  q('U kojemu je slučaju Justin optužen za seksualno uznemiravanje (lažna optužba 2020.)?', ['Optužba na Twitteru — brzo demantirana dokazima','DUI slučaj','Napad na paparaca','Incident u hotelu'], 0, 'hard'),
+  q('Justin Bieber je posjećivao strip klub s manjom u pratnji 2013. — u kojemu gradu?', ['Rio de Janeiru, Brazil','Las Vegasu','Miamiju','Los Angelesu'], 0, 'hard'),
+  q('Koji je incident s paparazzijem Justin imao u Los Angelesu zbog kojeg je bio optužen?', ['Sudar autom s fotografom','Fizički napad na paparaca','Krađa kamere','Prijetnje smrću'], 0, 'medium'),
+  q('U kojoj se godini Justin Bieber pokrstio u kadi hotela pred pastorom Carllom Lentzom?', ['2014','2015','2013','2016'], 0, 'hard'),
+
+  // ─── ZDRAVLJE I MENTALNO BLAGOSTANJE ─────────────────────────────────────
+  q('Kojom bolešću je Justin Bieber obolio 2019. što je utjecalo na njegovu karijeru?', ['Lymska bolest','Dijabetes tip 1','Kronova bolest','Lupus'], 0, 'easy'),
+  q('Što uzrokuje Lymska bolest?', ['Ubod zaraženog krpelja','Virus gripe','Bakterija u vodi','Alergijska reakcija'], 0, 'medium'),
+  q('Koji sindrom je Justinu uzrokovao privremenu paralizu lica 2022.?', ['Ramsay Hunt sindrom','Bellova paraliza','Guillain-Barré sindrom','Trigeminalna neuralgija'], 0, 'medium'),
+  q('Ramsay Hunt sindrom utječe na koji živac?', ['Facijalni živac (7. kranijalni živac)','Optički živac','Trigeminalni živac','Slušni živac'], 0, 'hard'),
+  q('Zbog Ramsay Hunt sindroma Justin je morao otkazati koncerte koje turneje?', ['Justice World Tour 2022','Changes Tour','Purpose Tour','Believe Tour'], 0, 'medium'),
+  q('Justin Bieber je javno govorio o borbi s depresijom i anksioznošću. Kada je to počeo?', ['Oko 2019–2020','2015','2012','2022'], 0, 'medium'),
+  q('S kojim je terapeutom/savjetnikom Justin Bieber surađivao na mentalnom zdravlju?', ['Nije javno otkrio ime','Dr. Drew','Adam Grant','Tony Robbins'], 0, 'hard'),
+  q('Justin Bieber je 2014. prokomentirao da je "pod jakim stresom". Koji je razlog naveo?', ['Nije bio sretan sa slavom u tako mladoj dobi','Financijski problemi','Razlaz s Selenom','Loše ocjene'], 0, 'medium'),
+  q('Justin Bieber je tražio krstine vjere kao dio duhovnog iscjeljivanja. U kojoj je rijeci kršten?', ['Nije kršten u rijeci — u kadi / bazenu','Rijeci Jordan','Rijeci Mississippi','Rijeci Niagara'], 0, 'medium'),
+
+  // ─── OBITELJ ─────────────────────────────────────────────────────────────
+  q('Kako se zove Justinova sestra po ocu (polusestra)?', ['Jazmyn Bieber','Jasmine Bieber','Jayda Bieber','Julia Bieber'], 0, 'medium'),
+  q('Kako se zove Justinov polubrat (sin njegova oca)?', ['Jaxon Bieber','Jacob Bieber','James Bieber','Jordan Bieber'], 0, 'medium'),
+  q('Justin Bieber ima još jednu polusestru. Kako se zove?', ['Bay Bieber','Blair Bieber','Belle Bieber','Bailey Bieber'], 0, 'hard'),
+  q('Jeremy Bieber (Justinov otac) je po struci što?', ['Majstor/radnik (razne struke)','Glazbenik','Glumac','Sportaš'], 0, 'hard'),
+  q('Pattie Mallette je napisala memoare 2012. "Nowhere But Up". O čemu knjiga govori?', ['O njezinom teškom djetinjstvu i odrastanju s Justinom','O Justiniovoj karijeri','O vjeri u Boga','O ljubavnom životu'], 0, 'medium'),
+  q('Justin Bieber je kao dijete bio blizak s kojim roditeljom?', ['S majkom Pattie — otac nije bio prisutan','S ocem Jeremy-jem','S oba podjednako','S bakom po majci'], 0, 'easy'),
+  q('Pattie Mallette je imala probleme s čime u mladosti?', ['Ovisnošću i mentalnim zdravljem','Kriminalom','Siromaganjem','Svime navedenim'], 3, 'hard'),
+  q('Justin Bieber je darovao majci kuću. Točno ili netočno?', ['Točno','Netočno','Nije poznato','Poklonio je novac, ne kuću'], 0, 'medium'),
+  q('Koliko Justinovih polusestara/braće zna javnost (do 2023.)?', ['3 (Jazmyn, Jaxon i Bay)','2','4','1'], 0, 'hard'),
+  q('Justinov otac Jeremy prisustvovao je nekim Justininim turnejama. Točno ili netočno?', ['Točno — video snimka ih je zajedno','Netočno — nikad','Djelomično — jednom','Netočno — bili su u svađi'], 0, 'medium'),
+
+  // ─── VJERA I DUHOVNOST ───────────────────────────────────────────────────
+  q('Kojoj je crkvenoj zajednici Justin Bieber bio blizak i aktivan?', ['Hillsong Church','Catholic Church','Baptist Church','Evangelical Free'], 0, 'easy'),
+  q('Koji je pastor bio Justinov duhovni mentor dok je bio aktivan u Hillsongu?', ['Carl Lentz','Brian Houston','Joel Osteen','T.D. Jakes'], 0, 'medium'),
+  q('Carl Lentz je otpušten iz Hillsonga 2020. zbog čega?', ['Nevjere (preljub)','Financijske zlouporabe','Narko skandala','Teoloških razlika'], 0, 'medium'),
+  q('Justin Bieber je krstio se u New Yorku u kadi hotela. Koji je video to dokumentirao?', ['Nema javnog videa — samo fotografije medija','Video na njegovom YouTube kanalu','Instagram story','Netflix dokumentarac'], 0, 'hard'),
+  q('Koje Bible stihove Justin Bieber ima tetoviran na tijelu?', ['Nema u potpunosti — ima kršćanske simbole i motive','Cijeli Psalam 23','Ivana 3:16','Matej 5:9'], 0, 'hard'),
+  q('Justin Bieber je javno zahvalio Bogu na dodjeli MTV VMAs. Točno ili netočno?', ['Točno — više puta','Netočno','Jednom 2016.','Uvijek iza kulisa, nikad javno'], 0, 'medium'),
+  q('Koji je Justinov singl koji je direktno kršćanski nadahnut i sadrži gospel elemente?', ['Holy','Purpose','Changes','Lonely'], 0, 'easy'),
+  q('Justin Bieber je vjenčan u kojoj crkvi 2019. za ceremoniju blagoslova?', ['Pristine Church u Blufftonu, South Carolina','Hillsong NYC','Catholic Church u Torontu','Baptist Church u LA-u'], 0, 'hard'),
+  q('Justin Bieber je govorio o celibatu prije braka. S kim je to podijelio javno?', ['U intervjuu s Vogue (2019) s Hailey','U intervjuu s Oprom','Na Instagramu','U dokumentarcu Seasons'], 0, 'hard'),
+
+  // ─── MODA, STIL I BRAND ──────────────────────────────────────────────────
+  q('Koji je brand odjeće Justin Bieber osnovao 2018.?', ['Drew House','Bieber Brand','JB Co.','Purpose Wear'], 0, 'easy'),
+  q('Zašto je brand nazvan "Drew House"?', ['Drew je Justinovo srednje ime','Hailey je smislila naziv','Drew je Justinov pas','Naziv je slučajan'], 0, 'medium'),
+  q('Koji je vizualni identitet Drew House?', ['Žuti pastelni tonovi, smajlić logo, oversized fit','Crno-bijeli minimalizam','Sportski streetwear','Luksuzna moda'], 0, 'medium'),
+  q('Justin Bieber je bio lice kampanje kojeg velikog modnog brenda u ranoj karijeri?', ['Calvin Klein (donje rublje kampanja)','Gucci','Louis Vuitton','H&M'], 0, 'easy'),
+  q('Justin Bieber je bio na naslovnici kojeg modnog magazina (zajedno s Hailey)?', ['Vogue (2019)','GQ','Harper\'s Bazaar','Elle'], 0, 'medium'),
+  q('Koji su Justinovi obožavatelji komentirali kao "iconic" dio njegovog imidža 2010–2012?', ['Njegova potpalatka frizura (the Bieber swoop)','Tetovaze','Naočale','Lanac'], 0, 'easy'),
+  q('Justin Bieber je promijenio frizuru 2011. što je izazvalo veliku medijsku pažnju. Kako?', ['Ošišao iknonsku stranicu i objavio video','Ofarbao plavo','Obrijao glavu','Pusio duže kose'], 0, 'easy'),
+  q('Koliko tetovaža otprilike ima Justin Bieber (2023.)?', ['Više od 60','Oko 20','Oko 40','Oko 10'], 0, 'medium'),
+  q('Koja tetovaža na Justinovu licu je kontroverzna?', ['Mala ruža pored oka / na obrazu','Leptir na čelu','Križ na čelu','Zvijezda na sljepoočnici'], 0, 'medium'),
+  q('Justin Bieber je tetovirao što na vratu?', ['Simbol ptice/orla i kršćanski križ','Haileyino ime','Poruku "nevermore"','Nema tetovaža na vratu'], 0, 'hard'),
+  q('Justin Bieber je nosio pajace/onesie na jedan od svojih koncerata. Na kojemu?', ['Believe Tour (legendarni outfit)','Purpose Tour','My World Tour','Changes Tour'], 0, 'hard'),
+  q('Koji brend patika Justin Bieber posebno voli i često nosi?', ['Nike i Adidas Yeezy','Louboutin','Church\'s','Tod\'s'], 0, 'medium'),
+
+  // ─── DRUŠTVENE MREŽE ─────────────────────────────────────────────────────
+  q('Kada je Justin Bieber dostigao 100 milijuna pratitelja na Instagramu?', ['Oko 2018.','2015.','2020.','2022.'], 0, 'hard'),
+  q('Justin Bieber je bio korisnik kojeg prve platforme osim YouTubea?', ['Twittera','Instagrama','TikToka','MySpaca'], 0, 'medium'),
+  q('Koliko pratitelja ima Justin Bieber na TikToku (2023., otprilike)?', ['Više od 20 milijuna','Oko 5 milijuna','Više od 50 milijuna','Oko 10 milijuna'], 2, 'hard'),
+  q('Justin Bieber je 2020. sudjelovao u izazovu "Zoom Photo Challenge". Na kojoj platformi?', ['Tik Tok / Instagramu','Snapchatu','Twitteru','Facebooku'], 0, 'hard'),
+  q('Koji je Justinov Twitter handle (korisničko ime)?', ['@justinbieber','@jbieber','@kidrauhl','@biebs'], 0, 'easy'),
+  q('Justin Bieber je skoro svakodnevno objavljivao na Instagramu u kojemu periodu?', ['2015–2017','2010–2012','2020–2022','2019–2021'], 0, 'hard'),
+  q('Justin Bieber je imao viralni trenutak kada je objavio što na Instagramu?', ['Fotografije s Hailey na moru (odmah nakon privatinog vjenčanja)','Video plesa','Selfie na Marsu','Live koncer'], 0, 'medium'),
+  q('Koji je Justinov YouTube kanal s više od 70 milijuna pretplatnika?', ['JustinBieberVevo','kidrauhl','JustinBieber','BieberTV'], 0, 'medium'),
+
+  // ─── NAGRADE I REKORDI ────────────────────────────────────────────────────
+  q('Za koji singl je Justin Bieber dobio Grammy nagradu?', ['Where Are Ü Now (Best Dance Recording)','Baby','Love Yourself','Sorry'], 0, 'medium'),
+  q('Justin Bieber je bio nominiran za Grammy za Best New Artist. Pobijedio je?', ['Ne — izgubio od Esperanze Spalding 2011','Da','Da, 2013.','Ne — ni nominiran nije bio'], 0, 'medium'),
+  q('Koliko ukupno Grammy nagrada ima Justin Bieber (do 2023.)?', ['2','1','3','4'], 0, 'hard'),
+  q('Koji je Justin Bieber Billboard Music Award rekord po broju pobjeda u jednoj godini?', ['18 nagrada (2016)','10 nagrada','25 nagrada','5 nagrada'], 0, 'hard'),
+  q('Justin Bieber je rekorder Guinness knjige rekorda za što (glazba)?', ['Najmlađi solo artist s #1 debitantskim albumom (US) i više rekorda streaming-a','Najbrže prodan album ikad','Rekord po prodanoj kart na turneji','Rekord po sljedbenicima na Twitteru'], 0, 'medium'),
+  q('Koji je Justin Bieber rekord u streaming-u koji je postavio s "Sorry"?', ['Najbrže dostigao 100M Spotify streama tadašnji rekord','100M u prvom danu','Milion u prvoj minuti','Nikad nije imao streaming rekord'], 0, 'hard'),
+  q('Justin Bieber je primio Čast za posebne zasluge na dodjeli kojeg programa?', ['iHeartRadio Music Awards','Grammy','Oscari','BRIT Awards'], 0, 'hard'),
+  q('Koji je Justinov MTV VMA nastup koji se smatra povijesnim (2015.)?', ['Nastup Purpose era — emotivni break-down na pozornici','Nastup s Beyoncé','Nastup gol na pozornici','Baby performans'], 0, 'medium'),
+  q('Za koji je singl Justin Bieber primio BRIT Award nominaciju?', ['Love Yourself','Sorry','Baby','Peaches'], 0, 'hard'),
+  q('Justin Bieber je bio nominirani za Razzie nagradu (najgori film). Za koji film?', ['Nije nominiran — bio je na Razzie listi ali ne za film','Never Say Never','Our World','Believe concert film'], 0, 'hard'),
+
+  // ─── SURADNJE I GOSTOVANJA ───────────────────────────────────────────────
+  q('Na čijoj pjesmi je Justin Bieber gostovao zaradivši svoje prve Grammy (s Jack Ü)?', ['Where Are Ü Now (Skrillex & Diplo = Jack Ü)','Lean On (Major Lazer)','Friends (Marshmello)','Alone (Halsey)'], 0, 'easy'),
+  q('Justin Bieber je surađivao s DJ Snakeom. Koja je ta pjesma?', ['Let Me Love You','Taki Taki','Magenta Riddim','Lean On'], 0, 'easy'),
+  q('Koji je Justinov duet s Bloodpopom?', ['Friends','Anyone','Stay','Holy'], 0, 'hard'),
+  q('S kim je Justin snimio "That Should Be Me" i "Never Say Never" duet u rano doba?', ['Jaden Smith (Never Say Never iz filma Karate Kid)','Drake','Eminem','Usher'], 0, 'medium'),
+  q('Koji je Justinov hit s Majahom Carey za božićno izdanje?', ['All I Want for Christmas Is You (remix)','Mistletoe','Under the Mistletoe','Santa Claus Is Coming to Town'], 0, 'medium'),
+  q('Justin Bieber je radio s kojim K-pop izvođačem?', ['PSY (Gentleman) — NE. S Koreancima nije u glavnoj suradnji. S BTS nije. Nije objavio suradnju s K-popom','BTS','PSY','BLACKPINK'], 0, 'hard'),
+  q('Koji je Justinov duet s Khalid iz 2019.?', ['Better','Talk','Lovely','Free Spirit'], 0, 'medium'),
+  q('S kime je Justin Bieber snimio "Cold Water" 2016.?', ['Major Lazer i MØ','Diplo i Sia','David Guetta i Nicki Minaj','Avicii i Coldplay'], 0, 'medium'),
+  q('Koji je hip-hop/R&B izvođač koji je producirao Justinov prvi album (mentorstvo)?', ['Usher (nije producirao ali mentorirao)','Kanye West','Jay-Z','P. Diddy'], 0, 'easy'),
+  q('Justin Bieber je nastupao na Arianinom dobrotvormom koncertu "One Love Manchester". Točno ili netočno?', ['Točno — jedan od nastupa','Netočno','Točno — bio je headliner','Netočno — bio je u publici'], 0, 'medium'),
+  q('Koji Justinov singl s Quavom iz 2020. je R&B/hip-hop ode ljubavi?', ['Intentions','Holy','Ghost','Peaches'], 0, 'easy'),
+  q('S kojim je grupama/artistima Justin radio za "Justice" album?', ['Burna Boy, Dominic Fike, Chance the Rapper, Daniel Caesar i dr.','Samo solo','BTS i Blackpink','Coldplay i Ed Sheeran'], 0, 'hard'),
+  q('Justin Bieber i Post Malone — jesu li surađivali?', ['Nisu objavili duet (samo live/event nastupi)','Da — "Circles" je njihov duet','Da — "Rockstar" verzija','Da — "Sunflower" remix'], 0, 'hard'),
+  q('Koji je hit nastao iz Justinove suradnje s Timbalandovim produkcijskim timom rano u karijeri?', ['Nije poznata direktna suradnja — Timbaland nije radio s Justinom tada','Baby','Somebody to Love','Never Let You Go'], 0, 'hard'),
+
+  // ─── FILMOVI I DOKUMENTARCI ───────────────────────────────────────────────
+  q('Koji je Justinov debitantski dokumentarni film iz 2011.?', ['Justin Bieber: Never Say Never','Justin Bieber: Believe','Justin Bieber: Seasons','Justin Bieber: Our World'], 0, 'easy'),
+  q('Koji je redatelj "Never Say Never" (2011)?', ['Jon M. Chu','Michael D. Ratner','Davis Guggenheim','J.J. Abrams'], 0, 'hard'),
+  q('Na koji je datum prikazan "Never Say Never" u kinima?', ['11. veljače 2011.','14. veljače 2011.','1. siječnja 2011.','11. studenog 2011.'], 0, 'hard'),
+  q('Koliko je "Never Say Never" zaradio u boxoffice-u?', ['Više od 98 milijuna dolara','Oko 20 milijuna','Više od 200 milijuna','Oko 50 milijuna'], 0, 'hard'),
+  q('Na kojoj platformi je objavljen "Justin Bieber: Seasons" dokumentarac?', ['YouTube Originals','Netflix','Amazon Prime','Hulu'], 0, 'medium'),
+  q('Koliko je epizoda imao "Seasons" (2020)?', ['10','5','15','8'], 0, 'medium'),
+  q('Na kojoj platformi je objavljen "Justin Bieber: Our World" (2021)?', ['Amazon Prime Video','Netflix','Disney+','Apple TV+'], 0, 'medium'),
+  q('Koji je subjekt "Justin Bieber: Our World" dokumentarca?', ['Priprema i izvedba NYE koncerta za Saudijsku Arabiju 2020.','Turnej Changes 2020','Snimanje albuma Justice','Brak s Hailey'], 0, 'hard'),
+  q('Justin Bieber je gostovao u kojoj TV seriji kao actor 2010.?', ['CSI: Crime Scene Investigation','Grey\'s Anatomy','NCIS','The Good Wife'], 0, 'medium'),
+  q('Koji je Justin Bieber glazbeni film koji nije bio na HBO ni Netflixu nego Amazon?', ['Justin Bieber: Our World','Seasons','Never Say Never','Believe'], 0, 'medium'),
+
+  // ─── OSOBNI INTERESI I HOBIJI ─────────────────────────────────────────────
+  q('Koji sport je Justin Bieber igrao kao hobby u odrasloj dobi, osim hokeja?', ['Uzbojni boks / kickboxing i skateboard','Tenis','Plivanje','Bejzbol'], 0, 'medium'),
+  q('Justin Bieber je učio MMA boks od kojeg borca?', ['Nije trenirao s poznatim borcem — ima personal trainer','Conor McGregor','Nate Diaz','Floyd Mayweather'], 0, 'hard'),
+  q('Justin Bieber je fanovi primijetili da igra koji video igre?', ['Fortnite i razne ostalo','FIFA isključivo','Call of Duty isključivo','Nije poznat kao gamer'], 0, 'hard'),
+  q('Koji je Justinov omiljeni tim u NHL hokeju (prema izjavama)?', ['Toronto Maple Leafs','Montreal Canadiens','Vancouver Canucks','Ottawa Senators'], 0, 'medium'),
+  q('Justin Bieber je vozač čega — poznata je njegova kolekcija?', ['Egzotičnih i luksuznih automobila (Ferrari, Lamborghini, Rolls-Royce)','Motocikala','Bicikala','Kamiona'], 0, 'easy'),
+  q('Koji je Justinov omiljeni restoran/fast food (prema intervjuima)?', ['In-N-Out Burger i McDonald\'s','Nobu','Gordon Ramsay Burgery','Chipotle'], 0, 'hard'),
+  q('Justin Bieber ima psa. Kako se zove?', ['Esther (jedan od pasa) i više ih ima','Rex','Max','Buddy'], 0, 'hard'),
+  q('Koji je Justinov omiljeni NFL tim (američki football)?', ['Nije izrazio jako navijanje za NFL tim','New England Patriots','Dallas Cowboys','Toronto Argonauts (CFL)'], 0, 'hard'),
+  q('Justin Bieber je 2013. bio opažen kako skateboarda s prijateljem Lil Zaneom. Točno ili netočno?', ['Točno — skateboarding mu je hobi','Netočno','Točno — ali uz Lil Waynea, ne Zanea','Netočno — nikad nije skateboardao javno'], 0, 'medium'),
+  q('Justin Bieber je naučio što iz hobija dok je bio na odmoru 2021.?', ['Surfanje','Skakanje padobranom','Ronjenje','Jedrenje'], 0, 'hard'),
+
+  // ─── TRIVIJA I ZANIMLJIVOSTI ─────────────────────────────────────────────
+  q('Justin Bieber je bio na naslovnici Rolling Stonea s koliko godina?', ['16','15','17','18'], 0, 'medium'),
+  q('Koji je Justinov znak horoskopa?', ['Ribe (Pisces — 1. ožujka)','Vodenjak','Ovan','Bik'], 0, 'medium'),
+  q('Justin Bieber ima krvnu grupu koja?', ['Nije javno poznato','A+','O-','B+'], 0, 'hard'),
+  q('Koji je Justinov omiljeni broj (prema starijim intervjuima)?', ['Šest (6)','Sedam (7)','Tri (3)','Jedanaest (11)'], 0, 'hard'),
+  q('Justin Bieber je pohađao srednju školu putem:', ['Kućnog školovanja / tutora na turnejama','Državne srednje škole u Stratfordu','Online škole','Nije završio srednju školu'], 0, 'medium'),
+  q('Koji je Justinov omiljeni film prema ranijim izjavama?', ['Rocky (Sylvester Stallone)','Titanic','The Notebook','Avatar'], 0, 'hard'),
+  q('Justin Bieber je 2020. rekao da se oseća kao:', ['"Novostvorena osoba" u vjeri i braku','Umoran od slave','Spreman za povlačenje','Kao rock zvijezda'], 0, 'hard'),
+  q('Justin Bieber je bio na naslovnici kojeg gaming magazina?', ['Nije bio na gaming naslovnici — nije poznat kao gamer-celebrity','Game Informer','Xbox Magazine','GamePro'], 0, 'hard'),
+  q('Koji je Justinov nickname od oca Jeremy-ja?', ['Buddy (prema Instagram objavama)','JB','Bieber','Kid'], 0, 'hard'),
+  q('Justin Bieber je otvorio vlastitu twitchicu / gaming channel. Točno ili netočno?', ['Netočno — nema Twitch kanal','Točno','Točno — ali obrisao','Netočno — ali igra s Loginom Paulom'], 0, 'easy'),
+  q('Justin Bieber je darovao fanovima što za Božić 2015.?', ['Singles / besplatnu glazbu i meet-and-greet za neke','iPhone-e','Novac u koverti','Autografe'], 0, 'hard'),
+  q('Koji je Justinov rekord u streaming-u koji drži na Spotifyju 2024.?', ['Jedan od top 10 najviše streamovanih artista svih vremena','Rekord jednog dana','Jedini artist s 10B streama na jednom albumu','Nema Spotify rekord'], 0, 'medium'),
+  q('Justin Bieber ima rodnu ozljeku (nema je sada) — koja?', ['Nije poznat po ozljedi','Slomljena ruka iz 2009.','Ozljeda koljena s hokeja','Iščašeno rame s skateboarda'], 0, 'hard'),
+  q('Što je Justinova mama Pattie rekla kada su joj ponudili pobačaj?', ['Odbila pobačaj i izabrala roditi Justina (govori o tome javno)','Nije komentirala','Rekla je da je bila zamišljala pobačaj','Nikad nije imala takvu situaciju'], 0, 'medium'),
+  q('Koliko je Justin Bieber bio star kada je snimio glazbeni video za "Baby"?', ['15 godina','16 godina','14 godina','13 godina'], 0, 'medium'),
+  q('Koji je Justinov maternalni djed (Pattičin otac) radio?', ['Nije poznat široj javnosti','Bio je glazbenik','Bio je pastor','Bio je sportaš'], 0, 'hard'),
+  q('Justin Bieber je u mladosti živio u kakvom domu?', ['Malom stanu/kući s majkom (skromno)','Vili s bazenom','Na farmi','U studentskom domu'], 0, 'medium'),
+  q('Na čijem sam programu je Justin Bieber bio kada je imao 15 godina i zaprepastio publiku?', ['The Ellen DeGeneres Show','Oprah Winfrey Show','Today Show','Good Morning America'], 0, 'hard'),
+  q('Justin Bieber je voštana figura u Madame Tussauds. U kojemu je gradu bila prva figura?', ['New York City','Londonu','Los Angelesu','Torontu'], 0, 'hard'),
+
+  // ─── PJESME — DETALJI ────────────────────────────────────────────────────
+  q('Koji je singl s albuma "Believe" dostigao #6 na Billboard Hot 100?', ['As Long as You Love Me','Boyfriend','Beauty and a Beat','Die In Your Arms'], 0, 'hard'),
+  q('Koji je singl s albuma "Purpose" koji govori o iskrenoj ispovijesti i krivnji?', ['Sorry','Love Yourself','What Do You Mean?','No Pressure'], 0, 'easy'),
+  q('Koji je Justinov singl koji govori o dijelu noći s voljenom osobom — "Show me — ikk"?', ['What Do You Mean?','Yummy','Changes','Intentions'], 0, 'hard'),
+  q('Koji je Justinov hit koji opisuje suosjećanje s izgubljenom osobom u tami?', ['Ghost','Lonely','Anyone','Die For You'], 0, 'medium'),
+  q('Na kojemu albumu se nalazi "Favorite Girl"?', ['My World 2.0','Believe','Under the Mistletoe','My World EP'], 0, 'medium'),
+  q('Koji Justinov hit ima poznati xylophone riff u uvodu?', ['Love Yourself','Sorry','What Do You Mean?','Baby'], 0, 'hard'),
+  q('Koji je Justinov singl bio nominiran za Grammy za Song of the Year?', ['Love Yourself','Sorry','What Do You Mean?','Baby'], 0, 'medium'),
+  q('Justin Bieber je snimio akustičnu verziju albuma "Believe Acoustic". Kada?', ['2013','2012','2014','2015'], 0, 'medium'),
+  q('Koji je Justinov singl o osjećaju sreće, "glazbena serenade" za Hailey?', ['Yummy','Holy','Changes','Anyone'], 0, 'medium'),
+  q('Koji su Justinovi singlovi s albuma "Justice" koji su svi uspjeli u top 40?', ['Peaches, Holy, Ghost, Lonely (deluxe), Stay','Baby, Sorry, Love Yourself','One Time, Boyfriend, Die In Your Arms','Changes, Yummy, Intentions'], 0, 'medium'),
+
+  // ─── SURADNJE S REGIONOM ─────────────────────────────────────────────────
+  q('Justin Bieber je bio u kontaktu s europskim DJ-om Aviciiem. Surađivali su?', ['Nisu objavili zajednički singl','Da — "Wake Me Up" je njihov duet','Da — "Levels" remix','Da — "Without You" feat. Justin'], 0, 'hard'),
+  q('Justin Bieber je nastupio na Robbie Williamsovom koncertu u Londonu. Točno ili netočno?', ['Netočno — nisu zajedno nastupali','Točno, 2015.','Točno, 2012.','Netočno — ali su se sreli backstage'], 0, 'easy'),
+  q('Justin Bieber je s Nicki Minaj radio na kojemu projektu?', ['Beauty and a Beat (s njom u spotu)','Super Bass remix','Anaconda remix','Starships remix'], 0, 'medium'),
+  q('Koji latinski izvođači su bili na "Despacito" remiksу s Justinom?', ['Luis Fonsi i Daddy Yankee','J Balvin i Ozuna','Bad Bunny i Maluma','Nicky Jam i Enrique Iglesias'], 0, 'easy'),
+  q('"Despacito" remix je dostigao #1 u koliko zemalja?', ['Više od 45 zemalja','Oko 20 zemalja','Više od 80 zemalja','Oko 30 zemalja'], 0, 'hard'),
+
+  // ─── REKORDNE PRODAJE ────────────────────────────────────────────────────
+  q('Koliko je kopija albuma "Purpose" prodano globalno?', ['Više od 5 milijuna','Oko 1 milijun','Više od 10 milijuna','Oko 2 milijuna'], 0, 'hard'),
+  q('"Baby" je prodana u više od koliko kopija?', ['12+ milijuna diljem svijeta','5 milijuna','20 milijuna','8 milijuna'], 0, 'hard'),
+  q('Justin Bieber je sa 16 godina bio koji po prodanosti artist u SAD-u?', ['Jedan od top 10 za tu godinu','Broj jedan','Broj pet','Izvan top 20'], 0, 'hard'),
+  q('Koji je Justinov album s najvećom prvotjednom prodajom?', ['Purpose (649.000 u prvom tjednu SAD)','Changes','Justice','Believe'], 0, 'hard'),
+  q('Justin Bieber je u svojih prvih 5 godina karijere zaradio otprilike koliko?', ['Više od 100 milijuna dolara','Oko 10 milijuna','Više od 300 milijuna','Oko 50 milijuna'], 0, 'hard'),
+
+  // ─── DODATNA TRIVIJA ─────────────────────────────────────────────────────
+  q('Koji je Justinov srednje ime?', ['Drew','Scott','Michael','James'], 0, 'easy'),
+  q('Justin Bieber je kao dijete svirao s lokalnima u centru Stratforda za:', ['Novac od prolaznika (busking)','Lokalni radio','Lokalni TV show','Škola'], 0, 'medium'),
+  q('Koji je Justinov omiljeni sportaš (prema starijim intervjuima)?', ['Kobe Bryant (košarka)','Wayne Gretzky','Sidney Crosby','LeBron James'], 0, 'hard'),
+  q('Justin Bieber je imao akne u tinejdžerskim godinama i govorio o tome. Točno ili netočno?', ['Točno — govorio je o tome otvoreno','Netočno','Točno — ali samo jednom','Netočno — imao je savršenu kožu'], 0, 'medium'),
+  q('U kojoj je godini Justin Bieber proglašen "jednim od 25 najutjecajnijih Tweetera" na Twitteru?', ['2013','2011','2015','2017'], 0, 'hard'),
+  q('Koji je Justinov lik na South Parku prikazan kao?', ['Satirična karikatura slavnog djeteta u više epizoda','Superheroj','Negativac koji pljuje na ljude','Tužni glazbenik'], 0, 'hard'),
+  q('Koji je Justinov tatoo na prsima koji prikazuje lik Isusa Krista?', ['Portret Isusa na lijevim prsima','Križ','Biblijski stih','Srce s krunom'], 0, 'hard'),
+  q('Justin Bieber je bio na naslovnici Forbes "Celebrity 100" liste s koliko godina?', ['18 (2012)','16','20','22'], 0, 'hard'),
+  q('Koliko je Justin Bieber zaradio 2013. prema Forbes listi?', ['Više od 55 milijuna dolara','Oko 20 milijuna','Više od 100 milijuna','Oko 10 milijuna'], 0, 'hard'),
+  q('Justin Bieber je imao vlastiti parfem. Kako se zvao prvi?', ['Someday','Believe','My World','Purpose'], 0, 'medium'),
+  q('Koji je drugi Justinov parfem lansiran 2012.?', ['Girlfriend','Someday 2','Believe (parfem)','Baby Girl'], 0, 'medium'),
+  q('Justinov parfem "Someday" je zaradio koliko u prvoj godini?', ['Više od 60 milijuna dolara','Oko 5 milijuna','Više od 100 milijuna','Oko 20 milijuna'], 0, 'hard'),
+  q('Justin Bieber je imao liniju lutki / akcijskih figura. Točno ili netočno?', ['Točno — prodavane u Walmart-u i drugima','Netočno','Točno — ali samo u Japanu','Netočno — samo plišane igračke'], 0, 'medium'),
+  q('Koji je Justinov pas (bichon frise) koji se pojavljuje u spotovima?', ['Nije poznato ime psa','Esther','Todd','Karma'], 0, 'hard'),
+  q('Justin Bieber je imao pet koji nije pas — koji?', ['Majmun OJ (zaplijenjen u Münchenu)','Mačka','Zmija','Papagaj'], 0, 'easy'),
+  q('Justin Bieber je 2022. privremeno izgubio sposobnost micanja jedne strane lica. Koji sindrom?', ['Ramsay Hunt sindrom','Bellova paraliza','Parkinsonova bolest','Multipla skleroza'], 0, 'medium'),
+  q('Koliko dugo je Justin Bieber prolazio kroz oporavak od Ramsay Hunt sindroma?', ['Nekoliko mjeseci — postepeno se oporavljao','Tjedan dana','Godinu dana','Odmah se oporavio'], 0, 'medium'),
+  q('Koji je Justinov album snimljen dok se borio s Lymskom bolešću?', ['Changes (2020)','Justice','Purpose','Journals'], 0, 'medium'),
+  q('Justin Bieber je govorio o Lymskoj bolesti u intervjuu s kojim medijem?', ['People magazine / Instagram objava','Rolling Stone','New York Times','BBC'], 0, 'hard'),
+  q('Koji je Justinov duet s Billie Eilish — jesu li surađivali?', ['Nisu objavili zajednički singl','Da — "Bad Guy" remix','Da — "Ocean Eyes" duet','Da — "Happier Than Ever" feat.'], 0, 'medium'),
+  q('Justin Bieber i Taylor Swift — jesu li bili u svađi? Zašto?', ['Scooter Braun je kupio Taylorin katalog — Bieber ga je podržao što je rasrdilo Taylor','Nisu se slagali oko glazbe','Justin je ukrao njezinu melodiju','Bili su u romansi pa prekinuli'], 0, 'medium'),
+  q('Taylor Swift je kritizirala Scootera Brauna. Justin Bieber je odgovorio na:', ['Instagramu — obranio Scootera što je izazvalo kontroverzu','Twitteru','U intervjuu za Rolling Stone','Na pozornici'], 0, 'medium'),
+  q('Justin Bieber i Kanye West — jesu li prijatelji?', ['Da — Kanye mu je bio uzor i prijatelji su bili (uz Kim Kardashian)','Ne — uvijek su se sukobljavali','Da — ali samo poslovni odnos','Ne — Kanye ga ne poštuje'], 0, 'hard'),
+  q('Justin Bieber je 2021. objavio da je "uhvatio" COVID-19. Točno ili netočno?', ['Točno','Netočno','Točno — ali asimptomatski','Netočno — imao je gripu'], 0, 'easy'),
+  q('Koji je Justinov dobrotvoran projekt kojemu je redovito donirao?', ['Pencils of Promise (izgradnja škola) i razni drugi','Justin Bieber Foundation','Save the World Fund','Nije poznat po dobrotvornosti'], 0, 'hard'),
+  q('Justin Bieber je donirao novac za pohađanje škola u kojim zemljama?', ['Gvatemali, Nikaragvi i Gani (Pencils of Promise)','Africi i Aziji','SAD i Kanadi','Svuda podjednako'], 0, 'hard'),
+  q('Koji je Justin Bieber napravio za one injured Manchester Arena attack (2017)?', ['Nije prisustvovao — ali poslao podršku Ariani i žrtvama','Prisustvovao je One Love Manchester','Donirao je 1 milijun dolara','Organizirao vlastiti dobrotvoran koncert'], 1, 'hard'),
+  q('Justin Bieber je boravio u Japanu i imao incident na carinikama. Što se dogodilo?', ['Zaplijenjen mu je majmun OJ — nije u Japanu nego Münchenu','Uhićen zbog droge','Zabranjen ulaz u Japan','Nije bilo incidenta u Japanu'], 0, 'hard'),
+  q('Justinova mama Pattie je bila: ', ['Kršćanska govornica, aktivistica i producentica dokumentarca','Glazbenica','Glumica','Odvjetnica'], 0, 'medium'),
+  q('Justin Bieber je govorio da mu je Bog najbitniji u životu ispred:', ['Glazbe i slavе','Hailey','Novca','Zdravlja'], 0, 'medium'),
+  q('Koji je Justinov Instagram post s Hailey imao više od 10 milijuna lajkova (otprilike)?', ['Objava o braku/veridbi 2018.','Čestitka za Božić 2020.','Objavljivanje albuma Changes','Selfie na godišnjici'], 0, 'medium'),
+  q('Koji je Justinov rekord u broju Twitterovih sljedbenika (bio je dugo #2 iza Katy Perry)?', ['Oko 114 milijuna (2023)','Oko 50 milijuna','Oko 80 milijuna','Oko 200 milijuna'], 0, 'hard'),
+  q('Selena Gomez i Justin su bili zajedno na Justinovu nastupu na kojemu godišnjem događaju?', ['Grammy after party 2011.','Super Bowl','Coachelli 2012.','MTV VMAs'], 0, 'hard'),
+  q('Justin Bieber je darovao fanovima meet-and-greet na kojemu natjecanju?', ['Raznim online natjecanjima (Twitter/Instagram)','American Idol','X Factor','Big Brother'], 0, 'medium'),
+  q('Koji je Justinov hit koji govori o tome da misli na svoju bivšu (mnogi tvrde Selenu)?', ['Overboard s Machine Gun Kellyjem — ne. "Ghost" govori o gubitku','Ghost','Anyone','Lonely'], 1, 'hard'),
+  q('Justin Bieber ima tattoo koji prikazuje portret oca. Točno ili netočno?', ['Netočno — nema takvu tetovažu','Točno — na leđima','Točno — na ruci','Netočno — ima mamin portret'], 0, 'hard'),
+  q('Koji je Justinov tattoo s japanskim kanji znakom?', ['Ima kanji tetovažu (značenje "glazba" ili "vjetar")','Nema japanske tattooe','Ima ali je to korejski','Ima ali znači "ljubav"'], 0, 'hard'),
+  q('Justin Bieber je objavio merch liniju za svaki album?', ['Da — Purpose, Changes, Justice svi su imali merch','Samo Purpose','Samo Justice','Ne — ne radi merch'], 0, 'medium'),
+  q('Koji je Justinov slogan/ catchphrase s kojim je počeo pratitelje na koncertima rano?', ['Nije imao specifičan slogan','Never Say Never','Believe','Baby baby baby'], 0, 'hard'),
+  q('Justin Bieber je dobio zahtjev za deportaciju u SAD-u 2014. Tko je pokrenuo peticiju?', ['Bijela kuća peticija s više od 270.000 potpisa na we.gov','Kongres SAD-a','Kanadska vlada','Američka glazbena industrija'], 0, 'hard'),
+  q('Koji je Justinov izvor dohotka osim glazbe?', ['Parfemi, Drew House, reklame (Calvin Klein, Tim Hortons i dr.), investicije','Samo glazba','Samo turneje','Samo merch'], 0, 'medium'),
+  q('Justin Bieber je investirao u koji tech startup?', ['Shots (društvena mreža), Spotify i razne druge','Apple','Tesla','Uber'], 0, 'hard'),
+  q('Koji je Justinov hit prvi put koji je dostigao UK #1?', ['Love Yourself (2015/2016)','Baby','Sorry','What Do You Mean?'], 0, 'medium'),
+  q('Justin Bieber je bio na turneja zajednička s kim (otvarao njemu nastup)?', ['Taylor Swift (2009 — bila je njegova opening act)','Nije bio opening act','Usherom','Beyoncé'], 0, 'hard'),
+  q('Koji je Justin Bieber glazbeni žanr opisao kao "ono što osjećam u srcu — pop, R&B, soul"?', ['Contemporary R&B Pop','Country','EDM','Gospel'], 0, 'medium'),
+  q('Justin Bieber je bio zaposlen kao kuhar. Točno ili netočno?', ['Netočno — nikad nije radio kao kuhar','Točno — u McDonaldsu','Točno — u Torontu','Netočno — bio je konobar'], 0, 'easy'),
+  q('Koji je Justinov majčin utjecaj na njegovu glazbu?', ['Mama ga je naučila cijeniti vjeru i glazbu, odvodila ga na nastupe','Mama mu je bila menadžerica','Mama ga je naučila svirati gitaru','Mama nema utjecaj'], 0, 'medium'),
+  q('Justin Bieber je nastupio na premijeri kojeg filma?', ['Nije poznat po filmskim premijerama','Transformers 4','Avengers','Fast & Furious 7'], 0, 'hard'),
+  q('Koji je Justin Bieber singl koji sadrži čuven whistle note?', ['Nema whistle note u Justininim pjesmama','Baby','Never Let You Go','Somebody to Love'], 0, 'easy'),
+  q('Justin Bieber je bio proglašen "najneuhvatljivijim" celebrity-em od strane kojeg medija?', ['Niti jednog specifičnog — ali paparazzi su ga često gonili','TMZ','People','Billboard'], 0, 'hard'),
+  q('Koji je Justinov singl koji je snimio kad je imao 13 godina?', ['One Time (objavljan sa 15, snimao ranije)','Baby','Love Me','Common Denominator'], 0, 'hard'),
+  q('Justin Bieber je u intervju 2020. rekao da zažaljuje neke postupke iz prošlosti. Koje?', ['Loše ponašanje (incidents, zlostavljanje fanova) i nezrelost','Nema žalosti','Loše glazbene odluke','Prekid sa Selenom'], 0, 'medium'),
+  q('Koji je Justinov hit koji je imao 50M Spotify streama unutar tjedan dana (2021)?', ['Stay (s The Kid LAROI)','Peaches','Ghost','Holy'], 0, 'hard'),
+  q('Justin Bieber je član organizacije YBF (Youth Believers Fellowship). Točno ili netočno?', ['Netočno — nije član te organizacije','Točno','Točno — ali napustio','Netočno — osnivač je'], 0, 'easy'),
+  q('Koji je Justinov hit koji koristi sample Johna Lennona?', ['Nema sample Lennona','Lonely (Ben Gibbard)','Ghost','Changes'], 0, 'easy'),
+  q('Justin Bieber je surađivao s R. Kellyjem. Točno ili netočno?', ['Netočno — nisu surađivali','Točno — na jednom albumu','Točno — 2012. u studiju','Netočno — planirali ali odustali'], 0, 'easy'),
+  q('Koji je Justinov omiljeni restoran brzi obrok u Kanadi?', ['Tim Hortons','Harvey\'s','Swiss Chalet','Wendy\'s'], 0, 'medium'),
+  q('Tim Hortons je angažirao Justina za kampanju. Koja je marka kave ili pića?', ['Bieber Brew (kolekcija kave s Tim Hortonsom)','Bieber Donut','Justin\'s Blend','Belieber Coffee'], 0, 'hard'),
+  q('Justin Bieber je potvrdio brak s Hailey objavljujući što na Instagramu?', ['Fotografiju vjenčanog prstena i poruku','Video sa svadbe','Potvrdio u intervju za Vogue','Oboje putem twittera'], 0, 'medium'),
+  q('Koji je Justinov duet s Halsey?', ['The Feeling ili Justin nije s Halsey','The Feeling (s Capitalom Cities i Halsey — NE)','Nije surađivao s Halsey','Ghost'], 2, 'hard'),
+  q('Justin Bieber je nastupao na NYE (Nova Godina) 2020. za Saudijsku Arabiju. Koliko je platio nastup?', ['Procjenjuje se na više od milijun dolara','Nastupao besplatno','100 tisuća dolara','Nije poznato'], 0, 'hard'),
+  q('Justin Bieber je imao broj 1 hit u 7 desetljeća (od 2000-ih do 2020-ih). Točno ili netočno?', ['Netočno — aktivan u svega 2 desetljeća (2010-ih i 2020-ih)','Točno','Točno — 3 desetljeća','Netočno — samo u jednom desetljeću'], 0, 'easy'),
+  q('Koji je poznati modni dizajner napravio Justinovo svadbeno odijelo?', ['Virgil Abloh (Off-White)','Giorgio Armani','Tom Ford','Ralph Lauren'], 0, 'hard'),
+  q('Haileyino svadbeno vjenčanje napravio je koji dizajner?', ['Virgil Abloh (Off-White) za vjenčanicu','Vera Wang','Alexander McQueen','Givenchy'], 0, 'hard'),
+  q('Justin Bieber i Drake su prijatelji. Točno ili netočno?', ['Točno — viđeni zajedno i međusobno se hvale','Netočno','Točno — ali poslovni rivali','Netočno — bili su u svađi'], 0, 'medium'),
+  q('Koji je Justinov tatoo koji prikazuje "x" na licu?', ['Mala križ ili tatoo blizu oka (maleni)','Nema tattoo na licu','Velik "x" na čelu','Tatoo "Hailey" na licu'], 0, 'hard'),
+  q('Justin Bieber je rekao da mu je Taylor Swift "kao starija sestra". Točno ili netočno?', ['Netočno — nisu imali takav odnos (posebno nakon Scooter Braun skandala)','Točno','Točno — ali samo rano u karijeri','Netočno — bili su rivali'], 0, 'easy'),
+  q('Justin Bieber je objavio kolekciju s kojim streetwear brendom?', ['Balenciaga (limited collab)','Supreme','Off-White','Palace'], 0, 'hard'),
+  q('Koji je singl Justina Biebera koji je imao najveći globalni streaming u prvom tjednu (2021.)?', ['Stay (s The Kid LAROI) — rekord toga doba','Peaches','Ghost','Holy'], 0, 'hard'),
+  q('Justin Bieber je jedini izvođač koji je imao #1 single kao tinejdžer, dvadesetogodišnjak i tridesetogodišnjak. Točno?', ['Točno — rijetko dostignuće','Netočno','Točno — uz Michaela Jacksona jedini','Netočno — to je Elvis Presley'], 0, 'medium'),
+  q('Justin Bieber je imao fanove koji su se zvali "Beliebers". Odakle dolazi naziv?', ['Spoj "Believer" i "Bieber"','Justinova ideja','Scooter Braun izmislio','Nastalo slučajno na Twitteru'], 0, 'easy'),
+  q('Justin Bieber je gostovao na The Ellen DeGeneres Showu koliko puta (otprilike)?', ['Više od 10 puta','Jednom','Tri puta','Pet puta'], 0, 'hard'),
+  q('Koji je Justinov objavljivao cover na YouTubeu koji mu je donio slavu?', ['Covjersи Ne-Yoa, Stevie Wondera, Beyoncé i Justina Timberlakea','Samo Beyoncé covere','Samo rap covere','Samo Usherove covere'], 0, 'medium'),
+  q('Justin Bieber je kao dječak bio fan kojeg glasnog metal benda?', ['Nije bio fan metala — volio je R&B i pop','Metallica','Linkin Park','Green Day'], 0, 'medium'),
+  q('Koji je Justinov hit koji ima čuveni intro s gitarom i odmah prelazi u pop banger?', ['Love Yourself','What Do You Mean?','Sorry','Boyfriend'], 0, 'hard'),
+
+  // ─── DOPUNSKA PITANJA ────────────────────────────────────────────────────
+  q('Na kojemu je glazbenom festivalu Justin Bieber nastupio 2010. i privukao veliku pažnju?', ['Juno Awards u Kanadi (live nastup)','Glastonbury','Coachella','Lollapalooza'], 0, 'hard'),
+  q('Justin Bieber je najmlađi muški solo artist koji je debitirao s albumom na #1 US. Koliko je imao godina?', ['16','15','17','18'], 0, 'medium'),
+  q('Koji je Justinov slogan na Drew House odjeći?', ['Drew House smiley logo — bez motta','Never Say Never','Believe','Stay in the moment'], 0, 'medium'),
+  q('Justin Bieber je bio u Australiji na turneji i imao koji specifični incident?', ['Bodyguard mu je uhitio paparaca koji ga je snimao','Pao je s pozornice','Izgubio glas','Otkazao sve nastupe'], 0, 'hard'),
+  q('Koji je Justinov DJ partner s kojim je snimio "Where Are Ü Now" (Jack Ü)?', ['Skrillex i Diplo','Calvin Harris i David Guetta','Avicii i Kygo','Marshmello i Zedd'], 0, 'medium'),
+  q('Koliko je videospotova Justin Bieber snimio za album "Purpose"?', ['Više od 10 (za gotovo svaki singl)','Tri','Pet','Jedan'], 0, 'hard'),
+  q('Justin Bieber je bio mentor na "The Voice". Točno ili netočno?', ['Netočno — nije bio coach/mentor na The Voice','Točno, 2015.','Točno, 2017.','Netočno — bio je gost, ne mentor'], 0, 'easy'),
+  q('Koji je Justinov singl koji sadrži akustičnu gitaru kao jedini instrument u uvodnom dijelu?', ['Love Yourself','Sorry','Boyfriend','Baby'], 0, 'medium'),
+  q('Justin Bieber je snimio kampanju za Apple Music. Točno ili netočno?', ['Točno — bio je u Apple kampanjama','Netočno','Točno — ali samo Spotify','Netočno — nije radio reklamne kampanje'], 0, 'medium'),
+  q('U kojoj godini je Justin Bieber pokrenuo Drew House brand?', ['2018','2019','2017','2020'], 0, 'medium'),
+  q('Koji je Justinov poznati duet s Miley Cyrus?', ['Nisu snimili duet','Younger Now remix','23 feat. Miley','Angels feat. Miley'], 0, 'easy'),
+  q('Justin Bieber je pjevao neživo (playback) na nekim nastupima rano u karijeri. Točno?', ['Sporno — fanovi su to optužili, Bieber negira','Točno uvijek','Netočno — uvijek live','Točno samo jednom'], 0, 'hard'),
+  q('Koji je Justinov popularni meme koji prikazuje njega kako pleše u tvornici čokolade?', ['"Yummy" glazbeni video','Baby video','Boyfriend video','Sorry video'], 0, 'medium'),
+  q('Justin Bieber je živio u kojoj četvrti Los Angelesa?', ['Calabasas (s Kim/Kanye u blizini)','Beverly Hills','Hollywood Hills','Bel Air'], 0, 'medium'),
+  q('Koji je Justinov domar / bodyguard koji je s njim bio godinama?', ['Kenny Hamilton (glavni tjelohranitelj)','Mike Johnson','Dave Smith','Rod Taylor'], 0, 'hard'),
+  q('Kenny Hamilton je Justinov tjelohranitelj ali i:', ['Duhovni mentor i figurativno "stariji brat"','Bivši NFL igrač','Glazbeni producent','Menadžer turneje'], 0, 'hard'),
+  q('Justin Bieber je u dokumentarcu "Never Say Never" prikazan s koliko godina kao djetić?', ['13–14 (rane snimke karijere)','10','16','12'], 0, 'medium'),
+  q('Koji je Justinov hit koji je inspiriran kršćanskim tekstovima Psalama?', ['Holy','Purpose','Changes','Believe'], 0, 'medium'),
+  q('Justin Bieber je bio na naslovnici Seventeen magazina. Točno ili netočno?', ['Točno — više puta u tinejdžerskim godinama','Netočno','Točno — jednom','Netočno — bio je na Tiger Beat'], 0, 'medium'),
+  q('Koji je Justinov hit koji se pojavljuje u prvoj sceni dokumentarca "Seasons"?', ['Yummy','Changes','Holy','Lonely'], 0, 'hard'),
+  q('Justin Bieber je imao 10 singlova u top 40 istovremeno. Točno ili netočno?', ['Točno — 2016. imao ih je rekordnih nekoliko u isto vrijeme','Netočno','Točno — ali 5, ne 10','Netočno — max 3 istovremeno'], 0, 'medium'),
+  q('Koji je omiljeni glumac Justina Biebera prema ranijim intervjuima?', ['Will Smith','Tom Hanks','Leonardo DiCaprio','Denzel Washington'], 0, 'hard'),
+  q('Justin Bieber je imao ulicu nazvanu po njemu u Stratfordu. Točno ili netočno?', ['Netočno — ali ima plaketu/obilježje u gradu','Točno','Točno — Justin Bieber Way','Netočno — nikada'], 0, 'hard'),
+  q('Koji je Justinov hit koji se suprotstavlja bullyingu i govori djecu?', ['Never Say Never (inspirativna poruka)','Baby','Believe','Purpose'], 0, 'medium'),
+  q('Justin Bieber je u kakvom odnosu s Justinom Timberlakeom?', ['Obožava ga — JT je bio uzor','Rivalstvo','Svađa oko glazbenih prava','Nisu se nikad sreli'], 0, 'easy'),
+  q('Koji je Justinov hit koji opisuje noćni grad i neon estetiku (Changes album)?', ['Intentions (studio version)','Changes','Yummy','Come Around Me'], 0, 'hard'),
+  q('Justin Bieber je svira gitaru u "Love Yourself" spotu. Točno ili netočno?', ['Netočno — nema gitaru u spotu','Točno','Točno — akustičnu','Netočno — nema spota'], 0, 'easy'),
+  q('Koji je Justinov rani nastup na YouTube koji je privukao Scootera Brauna?', ['Coveri Ne-Yoa i Stevie Wondera na kanalu kidrauhl','Justin Timberlake cover','Beyoncé cover','Originalna pjesma u garaži'], 0, 'medium'),
+  q('Justin Bieber je rekao koji umjetnik mu je bio inspiracija u djetinjstvu (R&B)?', ['Michael Jackson, Stevie Wonder i Boyz II Men','Eminem','Elvis Presley','Bruce Springsteen'], 0, 'medium'),
+  q('Koji je Justinov duet s The Weekndom?', ['Nisu snimili zajednički singl','Die For You remix (nije Bieber)','Blinding Lights feat. Justin','The Feeling (nije The Weeknd — to je Capital Cities)'], 0, 'easy'),
+  q('Justin Bieber je sudjelovao na Donatella Versace pozivnoj večeri. Točno ili netočno?', ['Točno — bio je na Versace eventu','Netočno','Točno — ali samo kao gost šale','Netočno — Versace nikad ne poziva glazbenike'], 0, 'medium'),
+  q('Koji je Justinov hit u Karibima/reggaeton stilu za ljetni period?', ['Cold Water (s Major Lazerom)','Baby','Peaches','Sorry'], 0, 'medium'),
+  q('Justin Bieber je u kojoj godini premašio 50 milijardi ukupnih Spotify streama?', ['Oko 2023. (jedan od top streamovanih)','2019.','2021.','2015.'], 0, 'hard'),
+  q('Koji je Justinov album koji ima eksplicitni sadržaj i zahtijeva parental advisory?', ['Purpose (neke pjesme)','My World 2.0','Changes','Under the Mistletoe'], 0, 'hard'),
+  q('Justin Bieber je objavio split s Selenom 2018. kojih tjedana od ponovnog spajanja?', ['Justin se zaručio za Hailey samo tjedan dana nakon raskida sa Selenom','Godinu dana','Nekoliko mjeseci','Nije odmah s Hailey — čekao je'], 0, 'medium'),
+  q('Koji je Justinov poznati concert rider (zahtjevi na turneji)?', ['Nije poznat specifičan rider','Čokolada M&M bez smeđih bombona','Soba puna bijelog cvijeća','50 pari Nike tenisica'], 0, 'easy'),
+  q('Justin Bieber je pohađao koji religiozni kamp kao tinejdžer?', ['Nije pohađao camp — vjera mu je došla u odrasloj dobi','Bible Camp u Ontariju','Hillsong Youth Camp','Camp Kanakuk'], 0, 'medium'),
+  q('Koliko je glazbenih videa Justin Bieber objavio na VEVO kanalu (ukupno otprilike)?', ['Više od 40','Oko 10','Više od 100','Oko 20'], 0, 'hard'),
+  q('Justin Bieber je dao intervju za koji podcast (2021–2022)?', ['Nije bio na popularnim podcastima kao gost','The Joe Rogan Experience','Call Her Daddy','Armchair Expert'], 0, 'hard'),
+  q('Koji je Justinov singl koji mu je pomogao vratiti sliku u javnosti nakon skandala 2014.?', ['What Do You Mean? (2015) — comeback singl','Baby (re-release)','Yummy','Changes'], 0, 'medium'),
+  q('Justin Bieber je prijatan s kojim košarkaškim superstarom (obojica su Kanadani)?', ['Andrew Wiggins / Steve Nash (Canadian connection)','LeBron James','Steph Curry','Kevin Durant'], 0, 'hard'),
+  q('U kojoj je godini Justin Bieber rekao da uzima pauzu od glazbe?', ['2017 (otkazao Purpose Tour i rekao da treba pomoć)','2014','2019','2021'], 0, 'medium'),
+  q('Koji je Justinov hit s albuma "Justice" koji govori o transformaciji i rastu?', ['Ghost','Holy','Peaches','Anyone'], 0, 'medium'),
+  q('Koji je Justinov nastup na Grammyjima 2016. koji se smatra emotivnim?', ['Spoj "Sorry" i "Love Yourself" — raw nastup','Baby akustično','Believe s orkestrom','Never Say Never s Jaden Smithom'], 0, 'hard'),
+  q('Justin Bieber je imao sudski spor s paparazzi fotografom zbog čega?', ['Više sudskih sporova — udaranje autom i fizički napadi','Krađe fotografija','Klevete','Narušavanja autorskih prava'], 0, 'hard'),
+  q('Justinova veridba s Hailey dogodila se u kojoj državi?', ['Bahami (Watford, Bahamas)','SAD (New York)','Kanadi (Toronto)','Italiji (na jahti)'], 0, 'hard'),
+
+];
+
+async function seed() {
+  try {
+    let inserted = 0;
+    let skipped = 0;
+    for (const question of questions) {
+      const shuffled = shuffleQuestionOptions(question.options, question.correct_index);
+      const opts = shuffled.options.map((text, i) => ({ text, correct: i === shuffled.correctIndex }));
+      const result = await pool.query(
+        `INSERT INTO questions (category_id, question, options, correct_index, difficulty)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT DO NOTHING
+         RETURNING id`,
+        ['beliebers', question.question, JSON.stringify(opts), shuffled.correctIndex, question.difficulty]
+      );
+      if (result.rows.length) inserted++;
+      else skipped++;
+    }
+    console.log(`Done. Inserted: ${inserted}, Skipped (duplicates): ${skipped}`);
+    console.log(`Total new questions: ${inserted}`);
+  } catch (err) {
+    console.error('Seed error:', err);
+    process.exit(1);
+  } finally {
+    await pool.end();
+  }
+}
+
+seed();
