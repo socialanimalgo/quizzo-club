@@ -1,6 +1,54 @@
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
+const { authMiddleware, getUserFromAccessToken } = require('../middleware/auth');
+const { subscribeNotifications } = require('../lib/realtime');
+
+router.get('/stream', async (req, res) => {
+  try {
+    const token = String(req.query.access_token || '');
+    if (!token) return res.status(401).json({ error: 'Missing access token' });
+    const user = await getUserFromAccessToken(req, token);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired token' });
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+
+    const writeSummary = async () => {
+      const pool = req.app.get('pool');
+      const { rows } = await pool.query(
+        `SELECT COUNT(*) FILTER (WHERE read_at IS NULL)::int AS unread_count
+         FROM notifications
+         WHERE user_id = $1`,
+        [user.id]
+      );
+      res.write(`event: summary\n`);
+      res.write(`data: ${JSON.stringify({ unread_count: rows[0]?.unread_count || 0 })}\n\n`);
+    };
+
+    await writeSummary();
+    const unsubscribe = subscribeNotifications(user.id, async notification => {
+      res.write(`event: notification\n`);
+      res.write(`data: ${JSON.stringify(notification)}\n\n`);
+      await writeSummary();
+    });
+
+    const heartbeat = setInterval(() => {
+      res.write(`event: ping\n`);
+      res.write(`data: {}\n\n`);
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    });
+  } catch (err) {
+    console.error('Notifications stream error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Server error' });
+  }
+});
 
 router.use(authMiddleware);
 

@@ -45,6 +45,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS coins INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS gems INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_daily_reward_date DATE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ DEFAULT NOW();
 
 -- Analytics: page visits
 CREATE TABLE IF NOT EXISTS page_visits (
@@ -258,6 +259,28 @@ ALTER TABLE user_stats ADD COLUMN IF NOT EXISTS challenge_losses INTEGER DEFAULT
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS emoji TEXT NOT NULL DEFAULT '';
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS description TEXT;
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS color TEXT DEFAULT '#4F46E5';
+
+CREATE TABLE IF NOT EXISTS kvizopoli_matches (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  join_code TEXT UNIQUE NOT NULL,
+  host_user_id UUID REFERENCES users(id) ON DELETE CASCADE NOT NULL,
+  status TEXT DEFAULT 'active',
+  phase TEXT DEFAULT 'waiting_to_roll',
+  players JSONB NOT NULL DEFAULT '[]'::jsonb,
+  board_spaces JSONB NOT NULL DEFAULT '[]'::jsonb,
+  active_player_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  current_dice_value INTEGER,
+  current_question JSONB,
+  asked_question_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  duration_ms INTEGER NOT NULL DEFAULT 600000,
+  started_at TIMESTAMPTZ DEFAULT NOW(),
+  ends_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '10 minutes'),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_active_player ON kvizopoli_matches(active_player_id);
+CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_join_code ON kvizopoli_matches(join_code);
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS question_count INTEGER DEFAULT 0;
 
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS difficulty TEXT DEFAULT 'medium';

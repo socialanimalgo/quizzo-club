@@ -15,6 +15,8 @@ import Friends from './pages/Friends'
 import History from './pages/History'
 import Notifications from './pages/Notifications'
 import Shop from './pages/Shop'
+import Categories from './pages/Categories'
+import Kvizopoli from './pages/Kvizopoli'
 import { api } from './lib/api'
 import LoadingScreen from './components/LoadingScreen'
 import PageTransition from './components/PageTransition'
@@ -47,7 +49,7 @@ function AppShell() {
     setTransitioning(true)
   }, [location.pathname])
 
-  const showBottomNav = Boolean(user) && ['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily', '/shop'].includes(location.pathname)
+  const showBottomNav = Boolean(user) && ['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily', '/shop', '/categories'].includes(location.pathname)
 
   return (
     <div className="min-h-screen overflow-hidden">
@@ -70,6 +72,8 @@ function AppShell() {
           <Route path="/history" element={<History />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/shop" element={<Shop />} />
+          <Route path="/categories" element={<Categories />} />
+          <Route path="/kvizopoli" element={<Kvizopoli />} />
         </Routes>
       </div>
       {showBottomNav && <BottomNav />}

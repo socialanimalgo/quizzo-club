@@ -1,6 +1,6 @@
 const API_BASE = '/api'
 
-function getToken(): string | null {
+export function getToken(): string | null {
   return localStorage.getItem('quizzo-token')
 }
 
@@ -91,12 +91,30 @@ export const api = {
     history: () => apiFetch<{ history: any[] }>('/challenges/history'),
     complete: (id: string) => apiFetch<any>(`/challenges/${id}/complete`, { method: 'POST' }),
   },
+  kvizopoli: {
+    create: () => apiFetch<{ match: any }>('/kvizopoli/create', { method: 'POST' }),
+    join: (join_code: string) => apiFetch<{ match: any }>('/kvizopoli/join', { method: 'POST', body: JSON.stringify({ join_code }) }),
+    state: (id: string) => apiFetch<{ match: any }>(`/kvizopoli/matches/${id}`),
+    roll: (id: string) => apiFetch<{ match: any }>(`/kvizopoli/matches/${id}/roll`, { method: 'POST' }),
+    answer: (id: string, answer_id: string) =>
+      apiFetch<{ match: any; correct: boolean }>(`/kvizopoli/matches/${id}/answer`, { method: 'POST', body: JSON.stringify({ answer_id }) }),
+    invite: (id: string, user_id: string) =>
+      apiFetch<{ ok: boolean }>(`/kvizopoli/matches/${id}/invite`, { method: 'POST', body: JSON.stringify({ user_id }) }),
+    streamUrl: (id: string) => {
+      const token = getToken()
+      return token ? `${API_BASE}/kvizopoli/matches/${id}/stream?access_token=${encodeURIComponent(token)}` : null
+    },
+  },
   notifications: {
     list: (filter: 'all' | 'unread' = 'all') =>
       apiFetch<{ notifications: any[]; counts: { all_count: number; unread_count: number } }>(`/notifications?filter=${filter}`),
     summary: () => apiFetch<{ unread_count: number }>('/notifications/summary'),
     markRead: (id: string) => apiFetch<{ notification: any }>(`/notifications/${id}/read`, { method: 'POST' }),
     markAllRead: () => apiFetch<{ ok: boolean }>('/notifications/mark-all-read', { method: 'POST' }),
+    streamUrl: () => {
+      const token = getToken()
+      return token ? `${API_BASE}/notifications/stream?access_token=${encodeURIComponent(token)}` : null
+    },
   },
   users: {
     search: (q: string) => apiFetch<{ users: any[] }>(`/users/search?q=${encodeURIComponent(q)}`),

@@ -1,0 +1,503 @@
+const express = require('express');
+const router = express.Router();
+const { authMiddleware, getUserFromAccessToken } = require('../middleware/auth');
+const { createNotification } = require('../lib/notifications');
+const { publishKvizopoli, subscribeKvizopoli } = require('../lib/realtime');
+
+const PLAYER_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b'];
+const BOARD_TOPICS = [
+  'geography',
+  'film_music',
+  'sports',
+  'history',
+  'science',
+  'pop_culture',
+];
+const MATCH_DURATION_MS = 10 * 60 * 1000;
+const QUESTION_TIME_LIMIT_MS = 20 * 1000;
+
+function randomJoinCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code = 'QZ-';
+  for (let index = 0; index < 4; index += 1) {
+    code += alphabet[Math.floor(Math.random() * alphabet.length)];
+  }
+  return code;
+}
+
+function normalizeJsonArray(value) {
+  if (Array.isArray(value)) return value;
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function buildBoardSpaces() {
+  return Array.from({ length: 24 }, (_, index) => ({
+    id: index,
+    topicId: BOARD_TOPICS[index % BOARD_TOPICS.length],
+    ownerId: null,
+    ownerSince: null,
+  }));
+}
+
+function buildPlayer(user, seatIndex) {
+  return {
+    id: user.id,
+    name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email,
+    avatar: user.avatar_url || null,
+    color: PLAYER_COLORS[seatIndex],
+    position: seatIndex * 6,
+    connected: true,
+    correctAnswers: 0,
+    takeoverCount: 0,
+    averageAnswerMs: 0,
+    answerCount: 0,
+    seatIndex,
+    joinedAt: new Date().toISOString(),
+  };
+}
+
+function serializeMatch(match) {
+  const currentQuestion = match.current_question
+    ? {
+        id: match.current_question.id,
+        spaceId: match.current_question.spaceId,
+        topicId: match.current_question.topicId,
+        prompt: match.current_question.prompt,
+        answers: match.current_question.answers,
+        expiresAt: match.current_question.expiresAt,
+      }
+    : null;
+
+  return {
+    id: match.id,
+    joinCode: match.join_code,
+    status: match.status,
+    phase: match.phase,
+    players: match.players,
+    boardSpaces: match.board_spaces,
+    activePlayerId: match.active_player_id,
+    startedAt: match.started_at,
+    durationMs: match.duration_ms,
+    endsAt: match.ends_at,
+    currentDiceValue: match.current_dice_value,
+    currentQuestion,
+  };
+}
+
+function findPlayer(match, userId) {
+  return match.players.find(player => player && player.id === userId) || null;
+}
+
+function propertyCount(boardSpaces, playerId) {
+  return boardSpaces.filter(space => space.ownerId === playerId).length;
+}
+
+function findPropertyToTransfer(activePlayerId, boardSpaces) {
+  const owned = boardSpaces
+    .filter(space => space.ownerId === activePlayerId)
+    .sort((left, right) => {
+      if (left.ownerSince && right.ownerSince) return new Date(left.ownerSince) - new Date(right.ownerSince);
+      return left.id - right.id;
+    });
+  return owned[0] || null;
+}
+
+function getNextActivePlayerId(players, currentPlayerId) {
+  const activePlayers = players.filter(Boolean).sort((left, right) => left.seatIndex - right.seatIndex);
+  const currentIndex = activePlayers.findIndex(player => player.id === currentPlayerId);
+  if (currentIndex < 0) return activePlayers[0]?.id || null;
+  return activePlayers[(currentIndex + 1) % activePlayers.length]?.id || currentPlayerId;
+}
+
+function finalizeMatch(match) {
+  const players = [...match.players].filter(Boolean);
+  players.sort((left, right) => {
+    const propertyDelta = propertyCount(match.board_spaces, right.id) - propertyCount(match.board_spaces, left.id);
+    if (propertyDelta !== 0) return propertyDelta;
+    const correctDelta = right.correctAnswers - left.correctAnswers;
+    if (correctDelta !== 0) return correctDelta;
+    const takeoverDelta = right.takeoverCount - left.takeoverCount;
+    if (takeoverDelta !== 0) return takeoverDelta;
+    return left.averageAnswerMs - right.averageAnswerMs;
+  });
+
+  return {
+    ...match,
+    status: 'complete',
+    phase: 'match_complete',
+    active_player_id: null,
+    current_question: null,
+    winner_id: players[0]?.id || null,
+  };
+}
+
+async function pickQuestion(pool, topicId, askedQuestionIds) {
+  const exclude = normalizeJsonArray(askedQuestionIds);
+  let rows;
+
+  if (exclude.length) {
+    ({ rows } = await pool.query(
+      `SELECT id, question, options, correct_index
+       FROM questions
+       WHERE category_id = $1
+         AND active = true
+         AND NOT (id = ANY($2::uuid[]))
+       ORDER BY RANDOM()
+       LIMIT 1`,
+      [topicId, exclude]
+    ));
+  } else {
+    rows = [];
+  }
+
+  if (!rows || !rows.length) {
+    ({ rows } = await pool.query(
+      `SELECT id, question, options, correct_index
+       FROM questions
+       WHERE category_id = $1
+         AND active = true
+       ORDER BY RANDOM()
+       LIMIT 1`,
+      [topicId]
+    ));
+  }
+
+  return rows[0] || null;
+}
+
+async function loadMatch(pool, matchId) {
+  const { rows } = await pool.query('SELECT * FROM kvizopoli_matches WHERE id = $1', [matchId]);
+  if (!rows.length) return null;
+  const row = rows[0];
+  return {
+    ...row,
+    players: normalizeJsonArray(row.players),
+    board_spaces: normalizeJsonArray(row.board_spaces),
+    asked_question_ids: normalizeJsonArray(row.asked_question_ids),
+    current_question: row.current_question || null,
+  };
+}
+
+async function saveMatch(pool, match) {
+  const { rows } = await pool.query(
+    `UPDATE kvizopoli_matches
+     SET status = $2,
+         phase = $3,
+         players = $4,
+         board_spaces = $5,
+         active_player_id = $6,
+         current_dice_value = $7,
+         current_question = $8,
+         asked_question_ids = $9,
+         updated_at = NOW()
+     WHERE id = $1
+     RETURNING *`,
+    [
+      match.id,
+      match.status,
+      match.phase,
+      JSON.stringify(match.players),
+      JSON.stringify(match.board_spaces),
+      match.active_player_id,
+      match.current_dice_value,
+      match.current_question ? JSON.stringify(match.current_question) : null,
+      JSON.stringify(match.asked_question_ids || []),
+    ]
+  );
+  const next = await loadMatch(pool, rows[0].id);
+  publishKvizopoli(next.id, serializeMatch(next));
+  return next;
+}
+
+async function finalizeIfExpired(pool, match) {
+  if (match.status === 'complete') return match;
+  if (new Date(match.ends_at).getTime() > Date.now()) return match;
+  const finalized = finalizeMatch(match);
+  return saveMatch(pool, finalized);
+}
+
+router.get('/matches/:id/stream', async (req, res) => {
+  try {
+    const token = String(req.query.access_token || '');
+    if (!token) return res.status(401).json({ error: 'Missing access token' });
+    const user = await getUserFromAccessToken(req, token);
+    if (!user) return res.status(401).json({ error: 'Invalid or expired token' });
+
+    let match = await loadMatch(req.app.get('pool'), req.params.id);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    if (!findPlayer(match, user.id)) return res.status(403).json({ error: 'Forbidden' });
+    match = await finalizeIfExpired(req.app.get('pool'), match);
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders?.();
+    res.write(`event: state\n`);
+    res.write(`data: ${JSON.stringify(serializeMatch(match))}\n\n`);
+
+    const unsubscribe = subscribeKvizopoli(match.id, payload => {
+      res.write(`event: state\n`);
+      res.write(`data: ${JSON.stringify(payload)}\n\n`);
+    });
+    const heartbeat = setInterval(() => {
+      res.write(`event: ping\n`);
+      res.write(`data: {}\n\n`);
+    }, 25000);
+
+    req.on('close', () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+      res.end();
+    });
+  } catch (err) {
+    console.error('Kvizopoli stream error:', err);
+    if (!res.headersSent) res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.use(authMiddleware);
+
+router.post('/create', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const user = req.user;
+
+    const { rows: existingRows } = await pool.query(
+      `SELECT id
+       FROM kvizopoli_matches
+       WHERE status = 'active'
+         AND ends_at > NOW()
+         AND EXISTS (
+           SELECT 1
+           FROM jsonb_array_elements(players) AS player
+           WHERE player->>'id' = $1
+         )
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [user.id]
+    );
+
+    if (existingRows.length) {
+      const existing = await loadMatch(pool, existingRows[0].id);
+      return res.json({ match: serializeMatch(await finalizeIfExpired(pool, existing)) });
+    }
+
+    let joinCode = randomJoinCode();
+    while (true) {
+      const { rows: dupRows } = await pool.query('SELECT id FROM kvizopoli_matches WHERE join_code = $1', [joinCode]);
+      if (!dupRows.length) break;
+      joinCode = randomJoinCode();
+    }
+
+    const players = [buildPlayer(user, 0)];
+    const { rows } = await pool.query(
+      `INSERT INTO kvizopoli_matches (
+         join_code, host_user_id, status, phase, players, board_spaces, active_player_id, duration_ms, ends_at
+       )
+       VALUES ($1, $2, 'active', 'waiting_to_roll', $3, $4, $2, $5, NOW() + ($5 || ' milliseconds')::interval)
+       RETURNING id`,
+      [joinCode, user.id, JSON.stringify(players), JSON.stringify(buildBoardSpaces()), MATCH_DURATION_MS]
+    );
+
+    const match = await loadMatch(pool, rows[0].id);
+    res.status(201).json({ match: serializeMatch(match) });
+  } catch (err) {
+    console.error('Kvizopoli create error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/join', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const user = req.user;
+    const joinCode = String(req.body.join_code || '').trim().toUpperCase();
+    if (!joinCode) return res.status(400).json({ error: 'join_code required' });
+
+    let match = await (async () => {
+      const { rows } = await pool.query('SELECT id FROM kvizopoli_matches WHERE join_code = $1', [joinCode]);
+      if (!rows.length) return null;
+      return loadMatch(pool, rows[0].id);
+    })();
+
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    match = await finalizeIfExpired(pool, match);
+    if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
+
+    const existing = findPlayer(match, user.id);
+    if (existing) return res.json({ match: serializeMatch(match) });
+    if (match.players.length >= 4) return res.status(409).json({ error: 'Match is full' });
+
+    const nextSeat = match.players.length;
+    match.players.push(buildPlayer(user, nextSeat));
+    match = await saveMatch(pool, match);
+    res.json({ match: serializeMatch(match) });
+  } catch (err) {
+    console.error('Kvizopoli join error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.get('/matches/:id', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    let match = await loadMatch(pool, req.params.id);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
+    match = await finalizeIfExpired(pool, match);
+    res.json({ match: serializeMatch(match) });
+  } catch (err) {
+    console.error('Kvizopoli state error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/matches/:id/roll', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    let match = await loadMatch(pool, req.params.id);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
+    match = await finalizeIfExpired(pool, match);
+    if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
+    if (match.phase !== 'waiting_to_roll') return res.status(409).json({ error: 'Cannot roll right now' });
+    if (match.active_player_id !== req.userId) return res.status(403).json({ error: 'Not your turn' });
+
+    const dice = Math.floor(Math.random() * 6) + 1;
+    match.current_dice_value = dice;
+    match.phase = 'answering';
+
+    match.players = match.players.map(player => {
+      if (!player || player.id !== req.userId) return player;
+      return { ...player, position: (player.position + dice) % 24 };
+    });
+
+    const activePlayer = findPlayer(match, req.userId);
+    const landedSpace = match.board_spaces.find(space => space.id === activePlayer.position);
+    const question = await pickQuestion(pool, landedSpace.topicId, match.asked_question_ids);
+    if (!question) return res.status(400).json({ error: 'Not enough questions in this topic' });
+
+    match.current_question = {
+      id: question.id,
+      spaceId: landedSpace.id,
+      topicId: landedSpace.topicId,
+      prompt: question.question,
+      answers: question.options.map((text, index) => ({ id: `a${index}`, text })),
+      correctAnswerId: `a${question.correct_index}`,
+      askedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + QUESTION_TIME_LIMIT_MS).toISOString(),
+    };
+    match.asked_question_ids = [...match.asked_question_ids, question.id];
+
+    match = await saveMatch(pool, match);
+    res.json({ match: serializeMatch(match) });
+  } catch (err) {
+    console.error('Kvizopoli roll error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/matches/:id/answer', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { answer_id } = req.body;
+    let match = await loadMatch(pool, req.params.id);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
+    match = await finalizeIfExpired(pool, match);
+    if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
+    if (match.phase !== 'answering' || !match.current_question) return res.status(409).json({ error: 'No active question' });
+    if (match.active_player_id !== req.userId) return res.status(403).json({ error: 'Not your turn' });
+
+    const isExpired = new Date(match.current_question.expiresAt).getTime() <= Date.now();
+    const isCorrect = !isExpired && answer_id === match.current_question.correctAnswerId;
+    const elapsedMs = Math.max(0, Date.now() - new Date(match.current_question.askedAt).getTime());
+
+    const activePlayer = findPlayer(match, req.userId);
+    const landedSpace = match.board_spaces.find(space => space.id === match.current_question.spaceId);
+    const priorOwnerId = landedSpace.ownerId;
+
+    if (isCorrect) {
+      landedSpace.ownerId = req.userId;
+      landedSpace.ownerSince = new Date().toISOString();
+    } else if (priorOwnerId && priorOwnerId !== req.userId) {
+      const transferable = findPropertyToTransfer(req.userId, match.board_spaces);
+      if (transferable) {
+        transferable.ownerId = priorOwnerId;
+        transferable.ownerSince = new Date().toISOString();
+      }
+    }
+
+    match.players = match.players.map(player => {
+      if (!player || player.id !== req.userId) return player;
+      const nextAnswerCount = (player.answerCount || 0) + 1;
+      const totalMs = Math.round((player.averageAnswerMs || 0) * (player.answerCount || 0) + elapsedMs);
+      return {
+        ...player,
+        correctAnswers: player.correctAnswers + (isCorrect ? 1 : 0),
+        takeoverCount: player.takeoverCount + (isCorrect && priorOwnerId && priorOwnerId !== req.userId ? 1 : 0),
+        answerCount: nextAnswerCount,
+        averageAnswerMs: Math.round(totalMs / nextAnswerCount),
+      };
+    });
+
+    match.current_question = null;
+    match.current_dice_value = null;
+    match.active_player_id = getNextActivePlayerId(match.players, req.userId);
+    match.phase = new Date(match.ends_at).getTime() <= Date.now() ? 'match_complete' : 'waiting_to_roll';
+    if (match.phase === 'match_complete') {
+      match.status = 'complete';
+      match.active_player_id = null;
+    }
+
+    match = await saveMatch(pool, match);
+    res.json({ match: serializeMatch(match), correct: isCorrect });
+  } catch (err) {
+    console.error('Kvizopoli answer error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/matches/:id/invite', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ error: 'user_id required' });
+
+    let match = await loadMatch(pool, req.params.id);
+    if (!match) return res.status(404).json({ error: 'Match not found' });
+    if (!findPlayer(match, req.userId)) return res.status(403).json({ error: 'Forbidden' });
+    match = await finalizeIfExpired(pool, match);
+    if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
+
+    const { rows: userRows } = await pool.query(
+      'SELECT id, first_name, last_name FROM users WHERE id = $1 AND deleted_at IS NULL',
+      [user_id]
+    );
+    if (!userRows.length) return res.status(404).json({ error: 'User not found' });
+
+    const inviter = findPlayer(match, req.userId);
+    await createNotification(pool, {
+      userId: user_id,
+      type: 'kvizopoli_invite',
+      title: 'Poziv u Kvizopoli',
+      body: `${inviter.name} te poziva u sobu ${match.join_code}`,
+      data: { match_id: match.id, join_code: match.join_code, inviter_id: req.userId },
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Kvizopoli invite error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+module.exports = router;

@@ -16,6 +16,7 @@ const challengeRoutes = require('./routes/challenges');
 const notificationRoutes = require('./routes/notifications');
 const userRoutes = require('./routes/users');
 const shopRoutes = require('./routes/shop');
+const kvizopoliRoutes = require('./routes/kvizopoli');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -45,6 +46,7 @@ app.use('/api/challenges', challengeRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/shop', shopRoutes);
+app.use('/api/kvizopoli', kvizopoliRoutes);
 
 // ── Geo locale ───────────────────────────────────────────────────
 app.get('/api/locale', (req, res) => {

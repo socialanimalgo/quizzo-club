@@ -8,6 +8,7 @@ type Filter = 'all' | 'unread'
 function toneForNotification(notification: any) {
   const type = notification.type
   if (type === 'challenge_received' || type === 'challenge_invite') return { bg: '#06b6d4', text: '#111014', icon: 'swords' }
+  if (type === 'kvizopoli_invite') return { bg: '#baf2d8', text: '#111014', icon: 'target' }
   if (type === 'challenge_result') return { bg: notification.data?.result === 'loss' ? '#fecaca' : '#bbf7d0', text: '#111014', icon: notification.data?.result === 'loss' ? 'x' : 'trophy' }
   if (type === 'friend_request') return { bg: '#fff', text: '#111014', icon: 'mail' }
   if (type === 'friend_request_accepted') return { bg: '#bbf7d0', text: '#111014', icon: 'user' }
@@ -33,6 +34,20 @@ export default function Notifications() {
       load(filter)
     })
   }, [filter, navigate])
+
+  useEffect(() => {
+    const streamUrl = api.notifications.streamUrl()
+    if (!streamUrl) return
+    const stream = new EventSource(streamUrl)
+    const refresh = () => {
+      void load(filter)
+    }
+    stream.addEventListener('notification', refresh)
+    stream.addEventListener('summary', refresh)
+    return () => {
+      stream.close()
+    }
+  }, [filter])
 
   async function load(nextFilter: Filter) {
     const result = await api.notifications.list(nextFilter)
@@ -72,6 +87,13 @@ export default function Notifications() {
     const data = await api.challenges.acceptById(challengeId)
     await markRead(notification.id)
     navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id, category_id: data.category_id }, returnTo: '/notifications' } })
+  }
+
+  async function acceptKvizopoli(notification: any) {
+    const joinCode = notification.data?.join_code
+    if (!joinCode) return
+    await markRead(notification.id)
+    navigate(`/kvizopoli?code=${encodeURIComponent(joinCode)}`)
   }
 
   const unread = useMemo(() => items.filter(item => !item.read_at).length, [items])
@@ -138,6 +160,11 @@ export default function Notifications() {
                     {(notification.type === 'challenge_received' || notification.type === 'challenge_invite') && (
                       <div className="flex gap-2 mt-3">
                         <button onClick={() => acceptChallenge(notification)} className="btn btn-primary btn-sm">Prihvati</button>
+                      </div>
+                    )}
+                    {notification.type === 'kvizopoli_invite' && (
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={() => acceptKvizopoli(notification)} className="btn btn-primary btn-sm">Udi u sobu</button>
                       </div>
                     )}
                   </div>

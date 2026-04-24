@@ -20,6 +20,7 @@ router.get('/search', async (req, res) => {
     const { rows } = await pool.query(
       `SELECT
          u.id, u.first_name, u.last_name, u.email, u.avatar_url,
+         (u.last_seen_at >= NOW() - INTERVAL '5 minutes') AS online,
          EXISTS (
            SELECT 1 FROM friendships f
            WHERE (f.user_one_id = u.id AND f.user_two_id = $1)
@@ -71,6 +72,7 @@ router.get('/friends', async (req, res) => {
          CASE WHEN f.user_one_id = $1 THEN u2.last_name ELSE u1.last_name END AS last_name,
          CASE WHEN f.user_one_id = $1 THEN u2.email ELSE u1.email END AS email,
          CASE WHEN f.user_one_id = $1 THEN u2.avatar_url ELSE u1.avatar_url END AS avatar_url,
+         CASE WHEN f.user_one_id = $1 THEN (u2.last_seen_at >= NOW() - INTERVAL '5 minutes') ELSE (u1.last_seen_at >= NOW() - INTERVAL '5 minutes') END AS online,
          f.created_at
        FROM friendships f
        JOIN users u1 ON u1.id = f.user_one_id
@@ -248,7 +250,8 @@ router.get('/:id', async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const { rows } = await pool.query(
-      `SELECT id, first_name, last_name, email, avatar_url
+      `SELECT id, first_name, last_name, email, avatar_url,
+              (last_seen_at >= NOW() - INTERVAL '5 minutes') AS online
        FROM users
        WHERE id = $1`,
       [req.params.id]

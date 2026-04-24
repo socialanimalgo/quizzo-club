@@ -15,6 +15,26 @@ async function loadActiveUser(req, userId) {
   };
 }
 
+function touchLastSeen(req, userId) {
+  const pool = req.app.get('pool');
+  pool.query(
+    'UPDATE users SET last_seen_at = NOW() WHERE id = $1',
+    [userId]
+  ).catch(() => {});
+}
+
+async function getUserFromAccessToken(req, token) {
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    const user = await loadActiveUser(req, payload.userId);
+    if (!user || user.is_blocked) return null;
+    touchLastSeen(req, user.id);
+    return user;
+  } catch {
+    return null;
+  }
+}
+
 async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
@@ -25,10 +45,8 @@ async function authMiddleware(req, res, next) {
   const token = authHeader.split(' ')[1];
 
   try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    const user = await loadActiveUser(req, payload.userId);
+    const user = await getUserFromAccessToken(req, token);
     if (!user) return res.status(401).json({ error: 'Invalid or expired token' });
-    if (user.is_blocked) return res.status(403).json({ error: 'Account blocked' });
     req.user = user;
     req.userId = user.id;
     next();
@@ -40,14 +58,11 @@ async function authMiddleware(req, res, next) {
 async function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
-    try {
-      const payload = jwt.verify(authHeader.split(' ')[1], JWT_SECRET);
-      const user = await loadActiveUser(req, payload.userId);
-      if (user && !user.is_blocked) {
-        req.user = user;
-        req.userId = user.id;
-      }
-    } catch {}
+    const user = await getUserFromAccessToken(req, authHeader.split(' ')[1]);
+    if (user) {
+      req.user = user;
+      req.userId = user.id;
+    }
   }
   next();
 }
@@ -61,4 +76,4 @@ async function adminMiddleware(req, res, next) {
   }
 }
 
-module.exports = { authMiddleware, optionalAuth, adminMiddleware };
+module.exports = { authMiddleware, optionalAuth, adminMiddleware, getUserFromAccessToken };

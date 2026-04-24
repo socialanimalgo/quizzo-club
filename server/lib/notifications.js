@@ -1,3 +1,5 @@
+const { publishNotification } = require('./realtime');
+
 async function createNotification(pool, { userId, type, title, body, data = {} }) {
   const { rows } = await pool.query(
     `INSERT INTO notifications (user_id, type, title, body, data)
@@ -5,6 +7,7 @@ async function createNotification(pool, { userId, type, title, body, data = {} }
      RETURNING *`,
     [userId, type, title, body, JSON.stringify(data)]
   );
+  publishNotification(userId, rows[0]);
   return rows[0];
 }
 
