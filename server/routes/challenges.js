@@ -152,15 +152,6 @@ async function acceptChallenge(req, res, challengeLookup) {
 
     const ordered = await loadOrderedQuestions(pool, questionIds);
 
-    const challengedName = challenge.challenged_username ? `@${challenge.challenged_username}` : 'Protivnik';
-    await createNotification(pool, {
-      userId: challenge.challenger_id,
-      type: 'challenge_accepted',
-      title: 'Izazov je prihvaćen',
-      body: `${challengedName} je prihvatio tvoj izazov`,
-      data: { challenge_id: challenge.id, challenged_id: userId, category_id: challenge.category_id, mode: challenge.mode, session_id: challenge.challenger_session_id, from_display_name: challengedName },
-    });
-
     res.json({
       challenge_id: challenge.id,
       session_id: sRows[0].id,

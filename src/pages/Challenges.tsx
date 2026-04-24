@@ -120,8 +120,14 @@ export default function Challenges() {
     setCreating(true)
     setStatus('')
     try {
-      await api.challenges.create(selectedCat, mode, opponent.id)
-      setStatus(`Pozivnica poslana ${opponent.username ? `@${opponent.username}` : 'protivniku'}. Kviz počinje kad prihvati.`)
+      const data = await api.challenges.create(selectedCat, mode, opponent.id)
+      navigate('/quiz/play', {
+        state: {
+          session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id, category_id: selectedCat },
+          categoryLabel: CATEGORIES.find(cat => cat.id === selectedCat)?.name?.toUpperCase(),
+          returnTo: '/challenges',
+        },
+      })
     } catch (err: any) {
       setStatus(err.message || 'Greška pri slanju pozivnice.')
     } finally {
@@ -152,7 +158,7 @@ export default function Challenges() {
             <div className="flex items-center justify-between mb-3">
               <div>
                 <div className="font-display text-[16px] leading-none">Primljeni izazovi</div>
-                <div className="font-mono text-[10px] opacity-60 mt-1">Prihvati i odmah kreni igrati</div>
+                <div className="font-mono text-[10px] opacity-60 mt-1">Prihvati i odigraj kad želiš</div>
               </div>
               <div className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>{incoming.length}</div>
             </div>
@@ -303,7 +309,7 @@ export default function Challenges() {
           </div>
 
           <button onClick={handleCreate} disabled={creating || !opponent} className="btn btn-primary w-full">
-            {creating ? '…' : 'Pošalji VS pozivnicu'}
+            {creating ? '…' : 'Započni i pošalji pozivnicu'}
           </button>
           {!!status && <div className="font-mono text-[10px] mt-3 opacity-75">{status}</div>}
         </div>

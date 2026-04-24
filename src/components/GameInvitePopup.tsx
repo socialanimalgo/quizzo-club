@@ -3,7 +3,7 @@ import Icon from './Icon'
 type GameInvitePopupProps = {
   invite: {
     id: string
-    type: 'kvizopoli' | 'vs' | 'vs_ready'
+    type: 'kvizopoli' | 'vs'
     fromDisplayName: string
     roomCode?: string
     currentPlayers?: number
@@ -20,11 +20,10 @@ export default function GameInvitePopup({ invite, busy = false, error = '', onAc
   if (!invite) return null
 
   const isKvizopoli = invite.type === 'kvizopoli'
-  const isVsReady = invite.type === 'vs_ready'
-  const chipLabel = isKvizopoli ? 'KVIZOPOLI' : isVsReady ? 'VS SPREMAN' : 'VS IZAZOV'
+  const chipLabel = isKvizopoli ? 'KVIZOPOLI' : 'VS IZAZOV'
   const meta = isKvizopoli
     ? [invite.roomCode ? `Soba ${invite.roomCode}` : null, invite.currentPlayers && invite.maxPlayers ? `${invite.currentPlayers}/${invite.maxPlayers} igrača` : null].filter(Boolean).join(' · ')
-    : isVsReady ? 'Protivnik je prihvatio, možeš krenuti' : 'Prihvati izazov odmah'
+    : 'Prihvati izazov odmah'
 
   return (
     <div className="fixed inset-x-0 bottom-[calc(124px+env(safe-area-inset-bottom))] z-[52] px-4 pointer-events-none">
@@ -38,7 +37,7 @@ export default function GameInvitePopup({ invite, busy = false, error = '', onAc
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>{chipLabel}</div>
-                  <div className="font-display text-[20px] leading-tight mt-2">{isVsReady ? `${invite.fromDisplayName} je spreman` : `${invite.fromDisplayName} te poziva`}</div>
+                  <div className="font-display text-[20px] leading-tight mt-2">{invite.fromDisplayName} te poziva</div>
                   <div className="font-mono text-[10px] opacity-60 uppercase tracking-widest mt-1">{meta}</div>
                 </div>
                 <button onClick={onDismiss} className="btl btl-sm w-9 h-9 grid place-items-center shrink-0" style={{ background: '#fff', borderWidth: 2 }}>

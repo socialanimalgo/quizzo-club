@@ -30,7 +30,7 @@ import GameInvitePopup from './components/GameInvitePopup'
 type PendingInvite = {
   id: string
   notificationId: string
-  type: 'kvizopoli' | 'vs' | 'vs_ready'
+  type: 'kvizopoli' | 'vs'
   fromDisplayName: string
   roomCode?: string
   currentPlayers?: number
@@ -114,15 +114,6 @@ function AppShell() {
           })
         }
 
-        if (notification.type === 'challenge_accepted') {
-          pushInvite({
-            id: notification.id,
-            notificationId: notification.id,
-            type: 'vs_ready',
-            fromDisplayName: notification.data?.from_display_name || 'Protivnik',
-            challengeId: notification.data?.challenge_id,
-          })
-        }
       } catch {}
     })
 
@@ -147,9 +138,7 @@ function AppShell() {
       }
 
       if (!currentInvite.challengeId) throw new Error('Izazov nije dostupan')
-      const data = currentInvite.type === 'vs_ready'
-        ? await api.challenges.startById(currentInvite.challengeId)
-        : await api.challenges.acceptById(currentInvite.challengeId)
+      const data = await api.challenges.acceptById(currentInvite.challengeId)
       await api.notifications.markRead(currentInvite.notificationId).catch(() => {})
       window.dispatchEvent(new Event('quizzo.notifications.refresh'))
       setInviteQueue(current => current.filter(item => item.id !== currentInvite.id))
