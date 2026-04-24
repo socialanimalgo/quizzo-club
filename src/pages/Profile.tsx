@@ -71,14 +71,14 @@ export default function Profile() {
       tone: '#fff',
       href: undefined,
     },
-    {
-      id: 'subscription',
-      label: 'Pretplata',
-      value: 'Besplatno',
-      icon: 'crown',
-      tone: '#fde68a',
-      href: '/subscribe',
-    },
+    // {
+    //   id: 'subscription',
+    //   label: 'Pretplata',
+    //   value: 'Besplatno',
+    //   icon: 'crown',
+    //   tone: '#fde68a',
+    //   href: '/subscribe',
+    // },
     {
       id: 'shop',
       label: 'Shop',
