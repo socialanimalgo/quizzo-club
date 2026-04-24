@@ -5,7 +5,8 @@ const https = require('https');
 const { authMiddleware } = require('../middleware/auth');
 const { sendWelcomeEmail, sendNewUserAlert } = require('../lib/email');
 const { getWallet, grantPowerup } = require('../lib/powerups');
-const { getAvatarUrl } = require('../lib/avatar-bank');
+const crypto = require('crypto');
+const { getAvatarUrl, DEFAULT_AVATAR_ID } = require('../lib/avatar-bank');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
@@ -17,6 +18,48 @@ function getBaseUrl() {
 
 function createToken(userId) {
   return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
+}
+
+function decodeJwtPayload(token) {
+  const parts = String(token || '').split('.');
+  if (parts.length < 2) return null;
+  try {
+    return JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function getAppleClientId() {
+  return process.env.APPLE_CLIENT_ID || process.env.APPLE_SERVICE_ID;
+}
+
+function getAppleRedirectUri() {
+  return `${getBaseUrl()}/api/auth/apple/callback`;
+}
+
+function getApplePrivateKey() {
+  return process.env.APPLE_PRIVATE_KEY ? process.env.APPLE_PRIVATE_KEY.replace(/\n/g, '\n') : '';
+}
+
+function createAppleClientSecret() {
+  const teamId = process.env.APPLE_TEAM_ID;
+  const keyId = process.env.APPLE_KEY_ID;
+  const clientId = getAppleClientId();
+  const privateKey = getApplePrivateKey();
+
+  if (!teamId || !keyId || !clientId || !privateKey) {
+    throw new Error('Apple OAuth not configured');
+  }
+
+  return jwt.sign({}, privateKey, {
+    algorithm: 'ES256',
+    expiresIn: '180d',
+    issuer: teamId,
+    audience: 'https://appleid.apple.com',
+    subject: clientId,
+    header: { kid: keyId },
+  });
 }
 
 function sanitizeUser(user) {
@@ -87,10 +130,10 @@ router.post('/register', async (req, res) => {
     const password_hash = await bcrypt.hash(password, salt);
 
     const result = await pool.query(
-      `INSERT INTO users (email, password_hash, first_name, last_name)
-       VALUES ($1, $2, $3, $4)
+      `INSERT INTO users (email, password_hash, first_name, last_name, selected_avatar_id, avatar_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [email, password_hash, first_name || '', last_name || '']
+      [email, password_hash, first_name || '', last_name || '', DEFAULT_AVATAR_ID, getAvatarUrl(DEFAULT_AVATAR_ID)]
     );
 
     const user = result.rows[0];
@@ -114,7 +157,7 @@ router.post('/login', async (req, res) => {
 
     const user = result.rows[0];
     if (user.is_blocked) return res.status(403).json({ error: 'Account blocked' });
-    if (!user.password_hash) return res.status(401).json({ error: 'This account uses Google sign-in' });
+    if (!user.password_hash) return res.status(401).json({ error: 'This account uses social sign-in' });
 
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
@@ -139,6 +182,12 @@ router.get('/me', authMiddleware, async (req, res) => {
         return res.status(404).json({ error: 'User not found' });
       }
       user = result.rows[0];
+
+      if (!user.selected_avatar_id) {
+        user.selected_avatar_id = DEFAULT_AVATAR_ID;
+        user.avatar_url = getAvatarUrl(DEFAULT_AVATAR_ID);
+        await client.query('UPDATE users SET selected_avatar_id = $1, avatar_url = $2 WHERE id = $3', [DEFAULT_AVATAR_ID, user.avatar_url, req.userId]);
+      }
 
       if (!user.last_daily_reward_date || String(user.last_daily_reward_date) !== new Date().toISOString().slice(0, 10)) {
         await client.query(
@@ -167,6 +216,90 @@ router.get('/me', authMiddleware, async (req, res) => {
 });
 
 // ── Google OAuth ─────────────────────────────────────────────────
+
+router.get('/apple', (req, res) => {
+  try {
+    const clientId = getAppleClientId();
+    if (!clientId) return res.status(500).json({ error: 'Apple OAuth not configured' });
+
+    const url = 'https://appleid.apple.com/auth/authorize?' + new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: getAppleRedirectUri(),
+      response_type: 'code',
+      response_mode: 'form_post',
+      scope: 'name email',
+      state: crypto.randomBytes(12).toString('hex'),
+    });
+
+    res.redirect(url);
+  } catch (err) {
+    console.error('Apple auth init error:', err);
+    res.status(500).json({ error: 'Apple OAuth not configured' });
+  }
+});
+
+router.post('/apple/callback', express.urlencoded({ extended: false }), async (req, res) => {
+  const { code, error, user: rawUser } = req.body || {};
+  const base = getBaseUrl();
+
+  if (error || !code) return res.redirect(`${base}/signin?error=apple_cancelled`);
+
+  try {
+    const tokens = await httpsPost('https://appleid.apple.com/auth/token', {
+      grant_type: 'authorization_code',
+      code,
+      client_id: getAppleClientId(),
+      client_secret: createAppleClientSecret(),
+      redirect_uri: getAppleRedirectUri(),
+    });
+
+    if (!tokens.id_token) return res.redirect(`${base}/signin?error=token_failed`);
+
+    const payload = decodeJwtPayload(tokens.id_token);
+    if (!payload?.sub) return res.redirect(`${base}/signin?error=token_failed`);
+
+    let appleUser = null;
+    if (rawUser) {
+      try { appleUser = JSON.parse(rawUser); } catch {}
+    }
+
+    const pool = req.app.get('pool');
+    let user;
+    const byAppleId = await pool.query('SELECT * FROM users WHERE apple_id = $1', [payload.sub]);
+    if (byAppleId.rows.length > 0) {
+      user = byAppleId.rows[0];
+      if (user.is_blocked) return res.redirect(`${base}/signin?error=blocked`);
+    } else if (payload.email) {
+      const byEmail = await pool.query('SELECT * FROM users WHERE email = $1', [payload.email]);
+      if (byEmail.rows.length > 0) {
+        user = byEmail.rows[0];
+        if (user.is_blocked) return res.redirect(`${base}/signin?error=blocked`);
+        const { rows } = await pool.query('UPDATE users SET apple_id = $1 WHERE id = $2 RETURNING *', [payload.sub, user.id]);
+        user = rows[0];
+      }
+    }
+
+    if (!user) {
+      const firstName = appleUser?.name?.firstName || '';
+      const lastName = appleUser?.name?.lastName || '';
+      const email = payload.email;
+      if (!email) return res.redirect(`${base}/signin?error=no_email`);
+      const result = await pool.query(
+        `INSERT INTO users (email, apple_id, first_name, last_name, selected_avatar_id, avatar_url)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [email, payload.sub, firstName, lastName, DEFAULT_AVATAR_ID, getAvatarUrl(DEFAULT_AVATAR_ID)]
+      );
+      user = result.rows[0];
+      sendWelcomeEmail(user.email, user.first_name);
+      sendNewUserAlert(user.email, user.first_name, user.last_name, 'Apple');
+    }
+
+    res.redirect(`${base}/signin?token=${createToken(user.id)}`);
+  } catch (err) {
+    console.error('Apple OAuth error:', err);
+    res.redirect(`${base}/signin?error=server_error`);
+  }
+});
 
 router.get('/google', (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -234,9 +367,9 @@ router.get('/google/callback', async (req, res) => {
         user.avatar_url = profile.picture;
       } else {
         const result = await pool.query(
-          `INSERT INTO users (email, google_id, avatar_url, first_name, last_name)
-           VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-          [profile.email, profile.id, profile.picture, profile.given_name || '', profile.family_name || '']
+          `INSERT INTO users (email, google_id, avatar_url, first_name, last_name, selected_avatar_id)
+           VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+          [profile.email, profile.id, profile.picture, profile.given_name || '', profile.family_name || '', DEFAULT_AVATAR_ID]
         );
         user = result.rows[0];
         sendWelcomeEmail(user.email, user.first_name);

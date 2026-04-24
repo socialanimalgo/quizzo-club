@@ -60,6 +60,7 @@ export default function AvatarBank() {
       setError('')
       const result = await api.users.buyAvatar(avatar.id)
       setOwnedIds(current => current.includes(avatar.id) ? current : [...current, avatar.id])
+      setSelectedId(result.selected_avatar_id || avatar.id)
       setGems(result.gems || 0)
       await refreshWallet()
     } catch (err: any) {

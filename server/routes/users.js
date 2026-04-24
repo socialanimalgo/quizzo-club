@@ -88,7 +88,7 @@ router.post('/avatar-bank/purchase', async (req, res) => {
       return res.status(422).json({ error: 'Nedovoljno dragulja' });
     }
 
-    await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [avatar.price_gems, req.userId]);
+    await client.query('UPDATE users SET gems = gems - $1, selected_avatar_id = $2, avatar_url = $3 WHERE id = $4', [avatar.price_gems, avatar_id, avatar.image_url, req.userId]);
     await client.query('INSERT INTO user_avatar_ownership (user_id, avatar_id, source) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [req.userId, avatar_id, 'purchase']);
     const { rows: updatedRows } = await client.query('SELECT gems, selected_avatar_id FROM users WHERE id = $1', [req.userId]);
     await client.query('COMMIT');

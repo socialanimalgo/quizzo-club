@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS users (
   first_name TEXT DEFAULT '',
   last_name TEXT DEFAULT '',
   google_id TEXT UNIQUE,
+  apple_id TEXT UNIQUE,
   avatar_url TEXT,
   is_admin BOOLEAN DEFAULT false,
   is_blocked BOOLEAN DEFAULT false,
@@ -391,6 +392,7 @@ ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS correct_count INTEGER DEFAULT
 ALTER TABLE quiz_sessions ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ;
 
 ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS apple_id TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN DEFAULT false;
 ALTER TABLE challenges ADD COLUMN IF NOT EXISTS accepted_at TIMESTAMPTZ;
