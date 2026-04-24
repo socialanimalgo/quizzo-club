@@ -36,7 +36,6 @@ export default function Shop() {
         .then(([nextCatalog, nextWallet]) => {
           setCatalog(nextCatalog)
           setWallet(nextWallet)
-          // Enrich success message with gem count once catalog loads
           const packId = searchParams.get('pack')
           if (packId && nextCatalog?.gemPacks) {
             const pack = nextCatalog.gemPacks.find((p: any) => p.id === packId)
@@ -116,14 +115,14 @@ export default function Shop() {
             <div className="font-display text-[22px] leading-none">Shop</div>
             <div className="font-mono text-[10px] opacity-60 mt-0.5">{totalOwned} powerupa ukupno</div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1.5" style={{ background: '#fff' }}>
-              <span className="font-mono text-[11px]">🪙</span>
-              <span className="font-mono font-bold text-[12px] tabular">{wallet.coins}</span>
+          <div className="flex items-center gap-1">
+            <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#fde68a' }}>
+              <span className="text-[12px] leading-none">🪙</span>
+              <span className="font-mono font-bold text-[11px] tabular">{wallet.coins}</span>
             </div>
-            <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1.5" style={{ background: '#fff' }}>
-              <span className="font-mono text-[11px]">💎</span>
-              <span className="font-mono font-bold text-[12px] tabular">{wallet.gems}</span>
+            <div className="btl btl-sm sh-2 px-2 py-1 flex items-center gap-1" style={{ background: '#ddd6fe' }}>
+              <span className="text-[12px] leading-none">💎</span>
+              <span className="font-mono font-bold text-[11px] tabular">{wallet.gems}</span>
             </div>
           </div>
         </div>
@@ -133,13 +132,13 @@ export default function Shop() {
         <div className="btl sh-3 p-1 flex gap-1 mb-4" style={{ background: '#fff' }}>
           {[
             { key: 'powerups', label: 'Powerups' },
-            { key: 'bundles', label: 'Bundles' },
+            { key: 'bundles', label: 'Paketi' },
             { key: 'gems', label: 'Gems' },
           ].map(item => (
             <button
               key={item.key}
               onClick={() => setTab(item.key as Tab)}
-              className={`flex-1 py-2 font-mono text-[10px] font-bold uppercase tracking-widest rounded-[10px] ${tab === item.key ? '' : 'opacity-50'}`}
+              className={`flex-1 py-2 font-mono text-[10.5px] font-bold uppercase tracking-widest rounded-[10px] ${tab === item.key ? '' : 'opacity-50'}`}
               style={tab === item.key ? { background: 'var(--ink)', color: '#fff', border: '1.5px solid var(--line)' } : {}}
             >
               {item.label}
@@ -160,27 +159,41 @@ export default function Shop() {
         )}
 
         {tab === 'powerups' && (
-          <div className="grid grid-cols-1 gap-3">
+          <div className="flex flex-col gap-2.5">
             {catalog.powerups.map((powerup: any) => (
-              <div key={powerup.id} className="btl sh-4 p-4" style={{ background: '#fff' }}>
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-12 h-12 btl btl-sm grid place-items-center font-display text-[20px]" style={{ background: 'var(--accent-soft)' }}>
+              <div key={powerup.id} className="btl sh-3 p-3" style={{ background: '#fff' }}>
+                <div className="flex items-center gap-3">
+                  <div className="btl btl-sm w-14 h-14 grid place-items-center text-[32px] shrink-0" style={{ background: 'var(--paper)', borderWidth: 2 }}>
                     {powerup.emoji}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <div className="font-display text-[17px]">{powerup.name}</div>
-                      <span className="chip">×{wallet.inv?.[powerup.id] || 0}</span>
+                      <div className="font-display text-[15px] leading-tight">{powerup.name}</div>
+                      <span className="chip" style={{ background: '#fde68a', fontSize: 9, padding: '2px 5px', borderWidth: 1.5, boxShadow: '1.5px 1.5px 0 0 var(--line)' }}>
+                        ×{wallet.inv?.[powerup.id] || 0}
+                      </span>
                     </div>
-                    <div className="font-mono text-[10px] opacity-60 mt-1">{powerup.description}</div>
+                    <div className="font-mono text-[10px] opacity-70 mt-0.5">{powerup.description}</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <button disabled={busyKey === `${powerup.id}:coins`} onClick={() => buyPowerup(powerup.id, 'coins')} className="btn">
-                    🪙 {powerup.coins}
+                <div className="grid grid-cols-2 gap-2 mt-3">
+                  <button
+                    disabled={busyKey === `${powerup.id}:coins`}
+                    onClick={() => buyPowerup(powerup.id, 'coins')}
+                    className="btl btl-sm py-2 flex items-center justify-center gap-1"
+                    style={{ background: '#fde68a', borderWidth: 2, boxShadow: '2px 2px 0 0 var(--line)' }}
+                  >
+                    <span className="text-[14px] leading-none">🪙</span>
+                    <span className="font-mono text-[11px] font-bold tabular">{powerup.coins}</span>
                   </button>
-                  <button disabled={busyKey === `${powerup.id}:gems`} onClick={() => buyPowerup(powerup.id, 'gems')} className="btn btn-primary">
-                    💎 {powerup.gems}
+                  <button
+                    disabled={busyKey === `${powerup.id}:gems`}
+                    onClick={() => buyPowerup(powerup.id, 'gems')}
+                    className="btl btl-sm py-2 flex items-center justify-center gap-1"
+                    style={{ background: '#ddd6fe', borderWidth: 2, boxShadow: '2px 2px 0 0 var(--line)' }}
+                  >
+                    <span className="text-[14px] leading-none">💎</span>
+                    <span className="font-mono text-[11px] font-bold tabular">{powerup.gems}</span>
                   </button>
                 </div>
               </div>
@@ -189,50 +202,91 @@ export default function Shop() {
         )}
 
         {tab === 'bundles' && (
-          <div className="grid grid-cols-1 gap-3">
-            {catalog.bundles.map((bundle: any) => (
-              <div key={bundle.id} className="btl sh-4 p-4" style={{ background: bundle.id === 'mega' ? 'var(--ink)' : '#fff', color: bundle.id === 'mega' ? '#fff' : 'var(--ink)' }}>
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <div className="font-display text-[18px]">{bundle.name}</div>
-                    <div className="font-mono text-[10px] opacity-60 mt-1">{bundle.off_pct}% OFF</div>
+          <div className="flex flex-col gap-3">
+            {catalog.bundles.map((bundle: any) => {
+              const isMega = bundle.id === 'mega'
+              return (
+                <div
+                  key={bundle.id}
+                  className="btl sh-4 p-4 relative overflow-hidden"
+                  style={{ background: isMega ? 'var(--ink)' : '#fff', color: isMega ? '#fff' : 'var(--ink)' }}
+                >
+                  {isMega && (
+                    <div className="absolute top-3 right-3 chip" style={{ background: 'var(--accent)', fontSize: 9, padding: '2px 6px', borderWidth: 1.5 }}>
+                      🔥 HOT
+                    </div>
+                  )}
+                  <div className="flex items-baseline gap-2 mb-2">
+                    <div className="font-display text-[20px] leading-none">{bundle.name}</div>
+                    <div className="chip" style={{ background: '#fecaca', fontSize: 9, padding: '2px 6px', borderWidth: 1.5, color: 'var(--ink)' }}>
+                      -{bundle.off_pct}%
+                    </div>
                   </div>
-                  {bundle.id === 'mega' && <span className="chip" style={{ background: 'var(--accent)', color: 'var(--ink)' }}>HOT</span>}
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {Object.entries(bundle.items).map(([powerupId, qty]) => {
+                      const p = catalog.powerups.find((pp: any) => pp.id === powerupId)
+                      return (
+                        <div
+                          key={powerupId}
+                          className="btl btl-sm px-2 py-1 flex items-center gap-1"
+                          style={{ background: isMega ? 'rgba(255,255,255,0.12)' : 'var(--paper)', borderWidth: 1.5 }}
+                        >
+                          <span className="text-[14px] leading-none">{p?.emoji}</span>
+                          <span className="font-mono text-[10.5px] font-bold tabular">×{String(qty)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <button
+                    disabled={busyKey === bundle.id}
+                    onClick={() => buyBundle(bundle.id)}
+                    className="w-full btl btl-sm py-2.5 flex items-center justify-center gap-2"
+                    style={{ background: 'var(--accent)', color: 'var(--ink)', borderWidth: 2, boxShadow: '3px 3px 0 0 var(--line)' }}
+                  >
+                    <span className="text-[14px] leading-none">💎</span>
+                    <span className="font-display text-[14px] tabular">{bundle.cost_gems}</span>
+                    <span className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-70">· KUPI</span>
+                  </button>
                 </div>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {Object.entries(bundle.items).map(([powerupId, qty]) => (
-                    <span key={powerupId} className="chip" style={{ background: bundle.id === 'mega' ? '#fff' : 'var(--paper)' }}>
-                      {powerupId} ×{String(qty)}
-                    </span>
-                  ))}
-                </div>
-                <button disabled={busyKey === bundle.id} onClick={() => buyBundle(bundle.id)} className={`btn w-full ${bundle.id === 'mega' ? '' : 'btn-primary'}`} style={bundle.id === 'mega' ? { background: 'var(--accent)', color: 'var(--ink)' } : {}}>
-                  Kupi za 💎 {bundle.cost_gems}
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
 
         {tab === 'gems' && (
-          <div className="grid grid-cols-1 gap-3">
-            {catalog.gemPacks.map((pack: any) => (
-              <div key={pack.id} className="btl sh-4 p-4" style={{ background: '#fff' }}>
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div>
-                    <div className="font-display text-[18px]">💎 {pack.gems + pack.bonus}</div>
-                    <div className="font-mono text-[10px] opacity-60 mt-1">
-                      {pack.gems} baza{pack.bonus ? ` + ${pack.bonus} bonus` : ''}
+          <>
+            <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60 mb-2 px-1">// KUPI 💎</div>
+            <div className="grid grid-cols-2 gap-2.5">
+              {catalog.gemPacks.map((pack: any) => (
+                <div key={pack.id} className="btl sh-3 p-3 relative" style={{ background: '#fff' }}>
+                  {pack.popular && (
+                    <div className="absolute -top-2 -right-2 chip" style={{ background: 'var(--accent)', fontSize: 9, padding: '2px 6px', borderWidth: 1.5, boxShadow: '2px 2px 0 0 var(--line)' }}>
+                      POP.
                     </div>
+                  )}
+                  <div className="text-center">
+                    <div className="text-[40px] leading-none mb-1">💎</div>
+                    <div className="font-display text-[22px] leading-none tabular">{pack.gems + pack.bonus}</div>
+                    {pack.bonus > 0 && (
+                      <div className="font-mono text-[9.5px] font-bold mt-0.5" style={{ color: '#16a34a' }}>
+                        +{pack.bonus} BONUS
+                      </div>
+                    )}
+                    <button
+                      disabled={busyKey === pack.id}
+                      onClick={() => buyGems(pack.id)}
+                      className="btn btn-primary w-full mt-3"
+                    >
+                      €{Number(pack.price_eur).toFixed(2)}
+                    </button>
                   </div>
-                  {pack.popular && <span className="chip">POPULAR</span>}
                 </div>
-                <button disabled={busyKey === pack.id} onClick={() => buyGems(pack.id)} className="btn btn-primary w-full">
-                  €{Number(pack.price_eur).toFixed(2)}
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+            <div className="font-mono text-[10px] text-center opacity-50 mt-4">
+              💎 se koristi za powerupe i premium pakete
+            </div>
+          </>
         )}
       </div>
     </div>
