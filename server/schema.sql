@@ -163,9 +163,12 @@ CREATE TABLE IF NOT EXISTS gem_purchases (
   gems_amount INTEGER NOT NULL,
   price_eur NUMERIC(10,2) NOT NULL,
   stripe_payment_intent TEXT,
+  stripe_session_id TEXT UNIQUE,
   status TEXT DEFAULT 'pending',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+ALTER TABLE gem_purchases ADD COLUMN IF NOT EXISTS stripe_session_id TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS gem_purchases_session_id_idx ON gem_purchases (stripe_session_id) WHERE stripe_session_id IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS powerup_uses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

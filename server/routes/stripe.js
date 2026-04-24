@@ -115,6 +115,30 @@ router.post('/webhook', async (req, res) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object;
+
+        // ── One-time gem purchase ──────────────────────────────────
+        if (session.mode === 'payment') {
+          const { user_id, pack_id } = session.metadata || {};
+          if (!user_id || !pack_id) break;
+          const { GEM_PACKS } = require('../lib/powerups');
+          const pack = GEM_PACKS[pack_id];
+          if (!pack) break;
+          const totalGems = pack.gems + pack.bonus;
+          const { rows: existing } = await pool.query(
+            'SELECT id FROM gem_purchases WHERE stripe_session_id = $1',
+            [session.id]
+          );
+          if (existing.length) break;
+          await pool.query(
+            `INSERT INTO gem_purchases (user_id, pack_id, gems_amount, price_eur, stripe_session_id, status)
+             VALUES ($1, $2, $3, $4, $5, 'completed')`,
+            [user_id, pack_id, totalGems, pack.price_eur, session.id]
+          );
+          await pool.query('UPDATE users SET gems = gems + $1 WHERE id = $2', [totalGems, user_id]);
+          break;
+        }
+
+        // ── Subscription checkout ──────────────────────────────────
         if (session.mode !== 'subscription') break;
 
         const sub = await stripe.subscriptions.retrieve(session.subscription);

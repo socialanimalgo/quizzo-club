@@ -131,8 +131,46 @@ router.post('/buy-bundle', authMiddleware, async (req, res) => {
   }
 });
 
-router.post('/buy-gems', authMiddleware, async (_req, res) => {
-  return res.status(501).json({ error: 'Gem kupnja još nije spojena na Stripe' });
+router.post('/buy-gems', authMiddleware, async (req, res) => {
+  const { pack_id } = req.body || {};
+  const pack = GEM_PACKS[pack_id];
+  if (!pack) return res.status(400).json({ error: 'Invalid pack_id' });
+
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return res.status(503).json({ error: 'Plaćanje trenutno nije dostupno' });
+  }
+
+  const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+  const baseUrl = process.env.BASE_URL || 'https://quizzo.club';
+  const totalGems = pack.gems + pack.bonus;
+
+  try {
+    const session = await stripe.checkout.sessions.create({
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'eur',
+          unit_amount: Math.round(pack.price_eur * 100),
+          product_data: {
+            name: `💎 ${totalGems} Dragulja`,
+            description: pack.bonus
+              ? `${pack.gems} dragulja + ${pack.bonus} bonus dragulja`
+              : `${pack.gems} dragulja`,
+          },
+        },
+        quantity: 1,
+      }],
+      metadata: { user_id: req.userId, pack_id: pack.id },
+      success_url: `${baseUrl}/shop?gems_ok=1&pack=${pack.id}`,
+      cancel_url: `${baseUrl}/shop`,
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    console.error('Stripe gem checkout error:', err);
+    res.status(500).json({ error: 'Greška pri kreiranju naplate' });
+  }
 });
 
 module.exports = router;

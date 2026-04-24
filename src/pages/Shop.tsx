@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import { useWallet } from '../context/WalletContext'
@@ -8,12 +8,23 @@ type Tab = 'powerups' | 'bundles' | 'gems'
 
 export default function Shop() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { wallet, setWallet, refreshWallet } = useWallet()
-  const [tab, setTab] = useState<Tab>('powerups')
+  const [tab, setTab] = useState<Tab>(searchParams.get('gems_ok') ? 'gems' : 'powerups')
   const [catalog, setCatalog] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [busyKey, setBusyKey] = useState('')
   const [error, setError] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
+  // Handle Stripe success redirect
+  useEffect(() => {
+    if (!searchParams.get('gems_ok')) return
+    setSuccessMsg('Dragulji uspješno kupljeni! 💎')
+    setSearchParams({}, { replace: true })
+    refreshWallet().catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     api.auth.getUser().then(user => {
@@ -25,10 +36,17 @@ export default function Shop() {
         .then(([nextCatalog, nextWallet]) => {
           setCatalog(nextCatalog)
           setWallet(nextWallet)
+          // Enrich success message with gem count once catalog loads
+          const packId = searchParams.get('pack')
+          if (packId && nextCatalog?.gemPacks) {
+            const pack = nextCatalog.gemPacks.find((p: any) => p.id === packId)
+            if (pack) setSuccessMsg(`+${pack.gems + pack.bonus} dragulja dodano na tvoj račun! 💎`)
+          }
         })
         .catch(err => setError(err.message || 'Greška pri učitavanju shopa'))
         .finally(() => setLoading(false))
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, setWallet])
 
   const totalOwned = useMemo(
@@ -128,6 +146,12 @@ export default function Shop() {
             </button>
           ))}
         </div>
+
+        {successMsg && (
+          <div className="btl p-3 mb-4 font-mono text-[11px] font-bold" style={{ background: '#bbf7d0', borderColor: '#16a34a' }}>
+            {successMsg}
+          </div>
+        )}
 
         {error && (
           <div className="btl p-3 mb-4 font-mono text-[11px] font-bold" style={{ background: '#fecaca', borderColor: '#dc2626' }}>
