@@ -281,6 +281,12 @@ CREATE TABLE IF NOT EXISTS kvizopoli_matches (
 
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_active_player ON kvizopoli_matches(active_player_id);
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_join_code ON kvizopoli_matches(join_code);
+
+CREATE TABLE IF NOT EXISTS app_meta (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS question_count INTEGER DEFAULT 0;
 
 ALTER TABLE questions ADD COLUMN IF NOT EXISTS difficulty TEXT DEFAULT 'medium';

@@ -3,6 +3,7 @@
 
 try { require('dotenv').config(); } catch {}
 const { Pool } = require('pg');
+const { shuffleQuestionOptions } = require('../lib/questions');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://localhost/quizzo',
@@ -409,12 +410,13 @@ async function seed() {
     let total = 0;
     for (const [categoryId, qs] of Object.entries(questions)) {
       for (const q of qs) {
-        const opts = q.options.map((text, i) => ({ text, correct: i === q.correct_index }));
+        const shuffled = shuffleQuestionOptions(q.options, q.correct_index);
+        const opts = shuffled.options.map((text, i) => ({ text, correct: i === shuffled.correctIndex }));
         await pool.query(
           `INSERT INTO questions (category_id, question, options, correct_index, difficulty)
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT DO NOTHING`,
-          [categoryId, q.question, JSON.stringify(opts), q.correct_index, q.difficulty]
+          [categoryId, q.question, JSON.stringify(opts), shuffled.correctIndex, q.difficulty]
         );
         total++;
       }

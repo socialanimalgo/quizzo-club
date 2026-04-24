@@ -5,6 +5,7 @@ const http = require('http');
 const { execFileSync } = require('child_process');
 const jwt = require('jsonwebtoken');
 const { Pool } = require('pg');
+const { rebalanceQuestionOptionOrder } = require('./lib/questions');
 
 const authRoutes = require('./routes/auth');
 const adminRoutes = require('./routes/admin');
@@ -140,6 +141,8 @@ async function start() {
         env: process.env,
       });
     }
+
+    await rebalanceQuestionOptionOrder(pool);
 
     console.log('Database schema migration complete');
     app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

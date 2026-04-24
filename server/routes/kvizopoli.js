@@ -15,6 +15,8 @@ const BOARD_TOPICS = [
 ];
 const MATCH_DURATION_MS = 10 * 60 * 1000;
 const QUESTION_TIME_LIMIT_MS = 20 * 1000;
+const matchEndTimers = new Map();
+const questionTimers = new Map();
 
 function randomJoinCode() {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -139,6 +141,19 @@ function finalizeMatch(match) {
   };
 }
 
+function clearTimers(matchId) {
+  const matchTimer = matchEndTimers.get(matchId);
+  if (matchTimer) {
+    clearTimeout(matchTimer);
+    matchEndTimers.delete(matchId);
+  }
+  const questionTimer = questionTimers.get(matchId);
+  if (questionTimer) {
+    clearTimeout(questionTimer);
+    questionTimers.delete(matchId);
+  }
+}
+
 async function pickQuestion(pool, topicId, askedQuestionIds) {
   const exclude = normalizeJsonArray(askedQuestionIds);
   let rows;
@@ -222,6 +237,85 @@ async function finalizeIfExpired(pool, match) {
   if (new Date(match.ends_at).getTime() > Date.now()) return match;
   const finalized = finalizeMatch(match);
   return saveMatch(pool, finalized);
+}
+
+function resolveCurrentQuestionState(match, answerId = null) {
+  if (!match.current_question) return match;
+
+  const isExpired = new Date(match.current_question.expiresAt).getTime() <= Date.now();
+  const isCorrect = !isExpired && answerId === match.current_question.correctAnswerId;
+  const elapsedMs = Math.max(0, Date.now() - new Date(match.current_question.askedAt).getTime());
+
+  const landedSpace = match.board_spaces.find(space => space.id === match.current_question.spaceId);
+  const priorOwnerId = landedSpace?.ownerId || null;
+
+  if (landedSpace) {
+    if (isCorrect) {
+      landedSpace.ownerId = match.active_player_id;
+      landedSpace.ownerSince = new Date().toISOString();
+    } else if (priorOwnerId && priorOwnerId !== match.active_player_id) {
+      const transferable = findPropertyToTransfer(match.active_player_id, match.board_spaces);
+      if (transferable) {
+        transferable.ownerId = priorOwnerId;
+        transferable.ownerSince = new Date().toISOString();
+      }
+    }
+  }
+
+  match.players = match.players.map(player => {
+    if (!player || player.id !== match.active_player_id) return player;
+    const nextAnswerCount = (player.answerCount || 0) + 1;
+    const totalMs = Math.round((player.averageAnswerMs || 0) * (player.answerCount || 0) + elapsedMs);
+    return {
+      ...player,
+      correctAnswers: player.correctAnswers + (isCorrect ? 1 : 0),
+      takeoverCount: player.takeoverCount + (isCorrect && priorOwnerId && priorOwnerId !== match.active_player_id ? 1 : 0),
+      answerCount: nextAnswerCount,
+      averageAnswerMs: Math.round(totalMs / nextAnswerCount),
+    };
+  });
+
+  match.current_question = null;
+  match.current_dice_value = null;
+  match.active_player_id = getNextActivePlayerId(match.players, match.active_player_id);
+  match.phase = new Date(match.ends_at).getTime() <= Date.now() ? 'match_complete' : 'waiting_to_roll';
+  if (match.phase === 'match_complete') {
+    match.status = 'complete';
+    match.active_player_id = null;
+  }
+
+  return { match, correct: isCorrect };
+}
+
+function scheduleMatchTimers(pool, matchId) {
+  clearTimers(matchId);
+
+  loadMatch(pool, matchId).then(async currentMatch => {
+    if (!currentMatch) return;
+    if (currentMatch.status === 'complete') return;
+
+    const matchDelay = Math.max(0, new Date(currentMatch.ends_at).getTime() - Date.now());
+    const matchTimer = setTimeout(async () => {
+      const latest = await loadMatch(pool, matchId);
+      if (!latest || latest.status === 'complete') return;
+      const finalized = finalizeMatch(latest);
+      await saveMatch(pool, finalized);
+      clearTimers(matchId);
+    }, matchDelay + 20);
+    matchEndTimers.set(matchId, matchTimer);
+
+    if (currentMatch.current_question?.expiresAt) {
+      const questionDelay = Math.max(0, new Date(currentMatch.current_question.expiresAt).getTime() - Date.now());
+      const questionTimer = setTimeout(async () => {
+        const latest = await loadMatch(pool, matchId);
+        if (!latest || latest.status === 'complete' || !latest.current_question) return;
+        const resolved = resolveCurrentQuestionState(latest, null);
+        await saveMatch(pool, resolved.match);
+        scheduleMatchTimers(pool, matchId);
+      }, questionDelay + 20);
+      questionTimers.set(matchId, questionTimer);
+    }
+  }).catch(() => {});
 }
 
 router.get('/matches/:id/stream', async (req, res) => {
@@ -308,6 +402,7 @@ router.post('/create', async (req, res) => {
     );
 
     const match = await loadMatch(pool, rows[0].id);
+    scheduleMatchTimers(pool, match.id);
     res.status(201).json({ match: serializeMatch(match) });
   } catch (err) {
     console.error('Kvizopoli create error:', err);
@@ -322,6 +417,21 @@ router.post('/join', async (req, res) => {
     const joinCode = String(req.body.join_code || '').trim().toUpperCase();
     if (!joinCode) return res.status(400).json({ error: 'join_code required' });
 
+    const { rows: existingMembershipRows } = await pool.query(
+      `SELECT id, join_code
+       FROM kvizopoli_matches
+       WHERE status = 'active'
+         AND ends_at > NOW()
+         AND EXISTS (
+           SELECT 1
+           FROM jsonb_array_elements(players) AS player
+           WHERE player->>'id' = $1
+         )
+       ORDER BY updated_at DESC
+       LIMIT 1`,
+      [user.id]
+    );
+
     let match = await (async () => {
       const { rows } = await pool.query('SELECT id FROM kvizopoli_matches WHERE join_code = $1', [joinCode]);
       if (!rows.length) return null;
@@ -332,6 +442,10 @@ router.post('/join', async (req, res) => {
     match = await finalizeIfExpired(pool, match);
     if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
 
+    if (existingMembershipRows.length && existingMembershipRows[0].id !== match.id) {
+      return res.status(409).json({ error: 'Already in another active match', join_code: existingMembershipRows[0].join_code });
+    }
+
     const existing = findPlayer(match, user.id);
     if (existing) return res.json({ match: serializeMatch(match) });
     if (match.players.length >= 4) return res.status(409).json({ error: 'Match is full' });
@@ -339,6 +453,7 @@ router.post('/join', async (req, res) => {
     const nextSeat = match.players.length;
     match.players.push(buildPlayer(user, nextSeat));
     match = await saveMatch(pool, match);
+    scheduleMatchTimers(pool, match.id);
     res.json({ match: serializeMatch(match) });
   } catch (err) {
     console.error('Kvizopoli join error:', err);
@@ -398,6 +513,7 @@ router.post('/matches/:id/roll', async (req, res) => {
     match.asked_question_ids = [...match.asked_question_ids, question.id];
 
     match = await saveMatch(pool, match);
+    scheduleMatchTimers(pool, match.id);
     res.json({ match: serializeMatch(match) });
   } catch (err) {
     console.error('Kvizopoli roll error:', err);
@@ -417,49 +533,10 @@ router.post('/matches/:id/answer', async (req, res) => {
     if (match.phase !== 'answering' || !match.current_question) return res.status(409).json({ error: 'No active question' });
     if (match.active_player_id !== req.userId) return res.status(403).json({ error: 'Not your turn' });
 
-    const isExpired = new Date(match.current_question.expiresAt).getTime() <= Date.now();
-    const isCorrect = !isExpired && answer_id === match.current_question.correctAnswerId;
-    const elapsedMs = Math.max(0, Date.now() - new Date(match.current_question.askedAt).getTime());
-
-    const activePlayer = findPlayer(match, req.userId);
-    const landedSpace = match.board_spaces.find(space => space.id === match.current_question.spaceId);
-    const priorOwnerId = landedSpace.ownerId;
-
-    if (isCorrect) {
-      landedSpace.ownerId = req.userId;
-      landedSpace.ownerSince = new Date().toISOString();
-    } else if (priorOwnerId && priorOwnerId !== req.userId) {
-      const transferable = findPropertyToTransfer(req.userId, match.board_spaces);
-      if (transferable) {
-        transferable.ownerId = priorOwnerId;
-        transferable.ownerSince = new Date().toISOString();
-      }
-    }
-
-    match.players = match.players.map(player => {
-      if (!player || player.id !== req.userId) return player;
-      const nextAnswerCount = (player.answerCount || 0) + 1;
-      const totalMs = Math.round((player.averageAnswerMs || 0) * (player.answerCount || 0) + elapsedMs);
-      return {
-        ...player,
-        correctAnswers: player.correctAnswers + (isCorrect ? 1 : 0),
-        takeoverCount: player.takeoverCount + (isCorrect && priorOwnerId && priorOwnerId !== req.userId ? 1 : 0),
-        answerCount: nextAnswerCount,
-        averageAnswerMs: Math.round(totalMs / nextAnswerCount),
-      };
-    });
-
-    match.current_question = null;
-    match.current_dice_value = null;
-    match.active_player_id = getNextActivePlayerId(match.players, req.userId);
-    match.phase = new Date(match.ends_at).getTime() <= Date.now() ? 'match_complete' : 'waiting_to_roll';
-    if (match.phase === 'match_complete') {
-      match.status = 'complete';
-      match.active_player_id = null;
-    }
-
-    match = await saveMatch(pool, match);
-    res.json({ match: serializeMatch(match), correct: isCorrect });
+    const resolved = resolveCurrentQuestionState(match, answer_id);
+    match = await saveMatch(pool, resolved.match);
+    scheduleMatchTimers(pool, match.id);
+    res.json({ match: serializeMatch(match), correct: resolved.correct });
   } catch (err) {
     console.error('Kvizopoli answer error:', err);
     res.status(500).json({ error: 'Server error' });
