@@ -104,6 +104,10 @@ export const api = {
       apiFetch<{ challenge_id: string; session_id: string; category_id: string; mode: string; questions: any[] }>(`/challenges/by-id/${id}/accept`, {
         method: 'POST',
       }),
+    startById: (id: string) =>
+      apiFetch<{ challenge_id: string; session_id: string; category_id: string; mode: string; questions: any[] }>(`/challenges/by-id/${id}/start`, {
+        method: 'POST',
+      }),
     incoming: () => apiFetch<{ challenges: any[] }>('/challenges/incoming'),
     history: () => apiFetch<{ history: any[] }>('/challenges/history'),
     complete: (id: string) => apiFetch<any>(`/challenges/${id}/complete`, { method: 'POST' }),
@@ -136,7 +140,7 @@ export const api = {
     },
   },
   users: {
-    search: (q: string) => apiFetch<{ users: any[] }>(`/users/search?q=${encodeURIComponent(q)}`),
+    search: (q: string) => apiFetch<{ users: any[] }>(`/users/search?username=${encodeURIComponent(q)}`),
     get: (id: string) => apiFetch<{ user: any }>(`/users/${id}`),
     friends: () => apiFetch<{ friends: any[]; requests: any[] }>('/users/friends'),
     sendFriendRequest: (user_id: string) =>

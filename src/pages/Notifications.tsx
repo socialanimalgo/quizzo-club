@@ -8,6 +8,7 @@ type Filter = 'all' | 'unread'
 function toneForNotification(notification: any) {
   const type = notification.type
   if (type === 'challenge_received' || type === 'challenge_invite') return { bg: '#06b6d4', text: '#111014', icon: 'swords' }
+  if (type === 'challenge_accepted') return { bg: '#bbf7d0', text: '#111014', icon: 'check' }
   if (type === 'kvizopoli_invite') return { bg: '#baf2d8', text: '#111014', icon: 'target' }
   if (type === 'challenge_result') return { bg: notification.data?.result === 'loss' ? '#fecaca' : '#bbf7d0', text: '#111014', icon: notification.data?.result === 'loss' ? 'x' : 'trophy' }
   if (type === 'friend_request') return { bg: '#fff', text: '#111014', icon: 'mail' }
@@ -86,7 +87,9 @@ export default function Notifications() {
   async function acceptChallenge(notification: any) {
     const challengeId = notification.data?.challenge_id
     if (!challengeId) return
-    const data = await api.challenges.acceptById(challengeId)
+    const data = notification.type === 'challenge_accepted'
+      ? await api.challenges.startById(challengeId)
+      : await api.challenges.acceptById(challengeId)
     await markRead(notification.id)
     navigate('/quiz/play', { state: { session: { session_id: data.session_id, questions: data.questions, challenge_id: data.challenge_id, category_id: data.category_id }, returnTo: '/notifications' } })
   }
@@ -159,9 +162,9 @@ export default function Notifications() {
                         <button onClick={() => respondToFriendRequest(notification, 'decline')} className="btn btn-sm" style={{ background: '#fff' }}>Odbij</button>
                       </div>
                     )}
-                    {(notification.type === 'challenge_received' || notification.type === 'challenge_invite') && (
+                    {(notification.type === 'challenge_received' || notification.type === 'challenge_invite' || notification.type === 'challenge_accepted') && (
                       <div className="flex gap-2 mt-3">
-                        <button onClick={() => acceptChallenge(notification)} className="btn btn-primary btn-sm">Prihvati</button>
+                        <button onClick={() => acceptChallenge(notification)} className="btn btn-primary btn-sm">{notification.type === 'challenge_accepted' ? 'Pokreni' : 'Prihvati'}</button>
                       </div>
                     )}
                     {notification.type === 'kvizopoli_invite' && (

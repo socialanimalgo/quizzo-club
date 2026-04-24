@@ -31,6 +31,18 @@ async function createChallengeSession(pool, userId, categoryId, mode) {
   return { sessionId: sRows[0].id, questionIds };
 }
 
+async function loadChallengeForUser(pool, challengeId, userId) {
+  const { rows } = await pool.query(
+    `SELECT c.*, s.question_ids AS challenger_question_ids
+     FROM challenges c
+     LEFT JOIN quiz_sessions s ON s.id = c.challenger_session_id
+     WHERE c.id = $1
+       AND (c.challenger_id = $2 OR c.challenged_id = $2)`,
+    [challengeId, userId]
+  );
+  return rows[0] || null;
+}
+
 // POST /api/challenges/create — create a challenge
 router.post('/create', authMiddleware, async (req, res) => {
   try {
@@ -59,21 +71,18 @@ router.post('/create', authMiddleware, async (req, res) => {
     const ordered = await loadOrderedQuestions(pool, questionIds);
 
     if (challenged_user_id) {
-      const { rows: challengerRows } = await pool.query(
-        'SELECT first_name, last_name FROM users WHERE id = $1',
-        [userId]
-      );
+      const { rows: challengerRows } = await pool.query('SELECT username FROM users WHERE id = $1', [userId]);
       const { rows: categoryRows } = await pool.query(
         'SELECT name FROM categories WHERE id = $1',
         [category_id]
       );
-      const challengerName = `${challengerRows[0]?.first_name || ''} ${challengerRows[0]?.last_name || ''}`.trim();
+      const challengerName = challengerRows[0]?.username ? `@${challengerRows[0].username}` : 'Novi igrač';
       await createNotification(pool, {
         userId: challenged_user_id,
         type: 'challenge_received',
-        title: `${challengerName || 'Novi igrač'} te izaziva`,
-        body: `${categoryRows[0]?.name || category_id} · ${mode === 'hunter' ? 'Hunter Mode' : 'Izazov'} · kod ${shareCode}`,
-        data: { challenge_id: cRows[0].id, share_code: shareCode, category_id, mode, challenger_id: userId },
+        title: `${challengerName} te izaziva`,
+        body: `${categoryRows[0]?.name || category_id} · ${mode === 'hunter' ? 'Hunter Mode' : 'Izazov'}`,
+        data: { challenge_id: cRows[0].id, share_code: shareCode, category_id, mode, challenger_id: userId, from_display_name: challengerName },
       });
     }
 
@@ -143,12 +152,13 @@ async function acceptChallenge(req, res, challengeLookup) {
 
     const ordered = await loadOrderedQuestions(pool, questionIds);
 
+    const challengedName = challenge.challenged_username ? `@${challenge.challenged_username}` : 'Protivnik';
     await createNotification(pool, {
       userId: challenge.challenger_id,
       type: 'challenge_accepted',
       title: 'Izazov je prihvaćen',
-      body: `${challenge.challenged_name || 'Protivnik'} je prihvatio tvoj izazov`,
-      data: { challenge_id: challenge.id, challenged_id: userId, category_id: challenge.category_id },
+      body: `${challengedName} je prihvatio tvoj izazov`,
+      data: { challenge_id: challenge.id, challenged_id: userId, category_id: challenge.category_id, mode: challenge.mode, session_id: challenge.challenger_session_id, from_display_name: challengedName },
     });
 
     res.json({
@@ -167,8 +177,8 @@ async function acceptChallenge(req, res, challengeLookup) {
 // POST /api/challenges/:code/accept — accept by share code
 router.post('/:code/accept', authMiddleware, async (req, res) => {
   return acceptChallenge(req, res, (pool) => pool.query(
-    `SELECT c.*, s.question_ids AS challenger_question_ids, challenger.first_name AS challenger_name, challenger.last_name AS challenger_last_name,
-            acceptor.first_name AS challenged_name
+    `SELECT c.*, s.question_ids AS challenger_question_ids, challenger.username AS challenger_username,
+            acceptor.username AS challenged_username
      FROM challenges c
      LEFT JOIN quiz_sessions s ON s.id = c.challenger_session_id
      LEFT JOIN users challenger ON challenger.id = c.challenger_id
@@ -180,8 +190,8 @@ router.post('/:code/accept', authMiddleware, async (req, res) => {
 
 router.post('/by-id/:id/accept', authMiddleware, async (req, res) => {
   return acceptChallenge(req, res, (pool, userId) => pool.query(
-    `SELECT c.*, s.question_ids AS challenger_question_ids, challenger.first_name AS challenger_name, challenger.last_name AS challenger_last_name,
-            receiver.first_name AS challenged_name
+    `SELECT c.*, s.question_ids AS challenger_question_ids, challenger.username AS challenger_username,
+            receiver.username AS challenged_username
      FROM challenges c
      LEFT JOIN quiz_sessions s ON s.id = c.challenger_session_id
      LEFT JOIN users challenger ON challenger.id = c.challenger_id
@@ -193,11 +203,36 @@ router.post('/by-id/:id/accept', authMiddleware, async (req, res) => {
   ));
 });
 
+router.post('/by-id/:id/start', authMiddleware, async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const userId = req.user.userId;
+    const challenge = await loadChallengeForUser(pool, req.params.id, userId);
+
+    if (!challenge) return res.status(404).json({ error: 'Challenge not found' });
+    if (String(challenge.challenger_id) !== String(userId)) return res.status(403).json({ error: 'Only challenger can open this session' });
+    if (!challenge.challenged_session_id) return res.status(409).json({ error: 'Opponent has not accepted yet' });
+    if (!challenge.challenger_session_id) return res.status(500).json({ error: 'Challenge session missing' });
+
+    const ordered = await loadOrderedQuestions(pool, challenge.challenger_question_ids || []);
+    res.json({
+      challenge_id: challenge.id,
+      session_id: challenge.challenger_session_id,
+      category_id: challenge.category_id,
+      mode: challenge.mode,
+      questions: ordered.filter(Boolean),
+    });
+  } catch (err) {
+    console.error('Challenge start error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 router.get('/incoming', authMiddleware, async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const { rows } = await pool.query(
-      `SELECT c.*, challenger.first_name AS challenger_first_name, challenger.last_name AS challenger_last_name,
+      `SELECT c.*, challenger.username AS challenger_username, challenger.avatar_url AS challenger_avatar_url, challenger.selected_avatar_id AS challenger_selected_avatar_id,
               cat.name AS category_name
        FROM challenges c
        JOIN users challenger ON challenger.id = c.challenger_id
@@ -222,8 +257,8 @@ router.get('/history', authMiddleware, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT c.id, c.mode, c.category_id, c.completed_at, c.created_at, c.winner_id, c.challenger_id, c.challenged_id,
               cat.name AS category_name,
-              challenger.first_name AS challenger_first_name, challenger.last_name AS challenger_last_name,
-              challenged.first_name AS challenged_first_name, challenged.last_name AS challenged_last_name,
+              challenger.username AS challenger_username, challenger.avatar_url AS challenger_avatar_url, challenger.selected_avatar_id AS challenger_selected_avatar_id,
+              challenged.username AS challenged_username, challenged.avatar_url AS challenged_avatar_url, challenged.selected_avatar_id AS challenged_selected_avatar_id,
               s1.score AS challenger_score, s1.correct_count AS challenger_correct,
               s2.score AS challenged_score, s2.correct_count AS challenged_correct
        FROM challenges c
@@ -241,13 +276,17 @@ router.get('/history', authMiddleware, async (req, res) => {
     res.json({
       history: rows.map(row => {
         const isChallenger = String(row.challenger_id) === String(userId);
-        const opponentName = isChallenger
-          ? `${row.challenged_first_name || ''} ${row.challenged_last_name || ''}`.trim()
-          : `${row.challenger_first_name || ''} ${row.challenger_last_name || ''}`.trim();
+        const opponentUsername = isChallenger ? row.challenged_username : row.challenger_username;
         return {
           ...row,
           result: row.winner_id ? (String(row.winner_id) === String(userId) ? 'win' : 'loss') : 'draw',
-          opponent_name: opponentName || 'Nepoznati protivnik',
+          opponent_name: opponentUsername ? `@${opponentUsername}` : 'Nepoznati protivnik',
+          opponent: {
+            id: isChallenger ? row.challenged_id : row.challenger_id,
+            username: opponentUsername || null,
+            avatar_url: isChallenger ? row.challenged_avatar_url : row.challenger_avatar_url,
+            selected_avatar_id: isChallenger ? row.challenged_selected_avatar_id : row.challenger_selected_avatar_id,
+          },
           my_score: isChallenger ? row.challenger_score : row.challenged_score,
           opponent_score: isChallenger ? row.challenged_score : row.challenger_score,
           my_correct: isChallenger ? row.challenger_correct : row.challenged_correct,
@@ -268,8 +307,9 @@ router.get('/:code', async (req, res) => {
     const pool = req.app.get('pool');
     const { rows } = await pool.query(
       `SELECT c.*,
-              u.first_name AS challenger_name, u.last_name AS challenger_lastname,
+              u.username AS challenger_username,
               u.avatar_url AS challenger_avatar,
+              u.selected_avatar_id AS challenger_selected_avatar_id,
               cat.name AS category_name, cat.emoji AS category_emoji
        FROM challenges c
        JOIN users u ON u.id = c.challenger_id
@@ -353,8 +393,8 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
 
     const { rows: nameRows } = await pool.query(
       `SELECT
-         challenger.first_name AS challenger_first_name, challenger.last_name AS challenger_last_name,
-         challenged.first_name AS challenged_first_name, challenged.last_name AS challenged_last_name
+         challenger.username AS challenger_username,
+         challenged.username AS challenged_username
        FROM challenges c
        LEFT JOIN users challenger ON challenger.id = c.challenger_id
        LEFT JOIN users challenged ON challenged.id = c.challenged_id
@@ -362,14 +402,14 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
       [c.id]
     );
     const names = nameRows[0] || {};
-    const challengerName = `${names.challenger_first_name || ''} ${names.challenger_last_name || ''}`.trim();
-    const challengedName = `${names.challenged_first_name || ''} ${names.challenged_last_name || ''}`.trim();
+    const challengerName = names.challenger_username ? `@${names.challenger_username}` : 'protivnika';
+    const challengedName = names.challenged_username ? `@${names.challenged_username}` : 'protivnika';
 
     if (c.challenger_id) {
       await createNotification(pool, {
         userId: c.challenger_id,
         type: 'challenge_result',
-        title: winnerId === c.challenger_id ? `Pobijedio si ${challengedName || 'protivnika'}!` : winnerId === null ? 'Izazov je završio neriješeno' : `${challengedName || 'Protivnik'} te pobijedio`,
+        title: winnerId === c.challenger_id ? `Pobijedio si ${challengedName}!` : winnerId === null ? 'Izazov je završio neriješeno' : `${challengedName} te pobijedio`,
         body: `${c.category_id} · ${c.challenger_correct}/10 protiv ${c.challenged_correct}/10`,
         data: { challenge_id: c.id, result: winnerId === c.challenger_id ? 'win' : winnerId === null ? 'draw' : 'loss' },
       });
@@ -378,7 +418,7 @@ router.post('/:id/complete', authMiddleware, async (req, res) => {
       await createNotification(pool, {
         userId: c.challenged_id,
         type: 'challenge_result',
-        title: winnerId === c.challenged_id ? `Pobijedio si ${challengerName || 'protivnika'}!` : winnerId === null ? 'Izazov je završio neriješeno' : `${challengerName || 'Protivnik'} te pobijedio`,
+        title: winnerId === c.challenged_id ? `Pobijedio si ${challengerName}!` : winnerId === null ? 'Izazov je završio neriješeno' : `${challengerName} te pobijedio`,
         body: `${c.category_id} · ${c.challenged_correct}/10 protiv ${c.challenger_correct}/10`,
         data: { challenge_id: c.id, result: winnerId === c.challenged_id ? 'win' : winnerId === null ? 'draw' : 'loss' },
       });

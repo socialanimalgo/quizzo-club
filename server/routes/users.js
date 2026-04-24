@@ -111,14 +111,16 @@ router.get('/search', async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const userId = req.userId;
-    const q = (req.query.q || '').trim();
+    const q = String(req.query.username || req.query.q || '').trim().toLowerCase().replace(/^@/, '');
     if (!q) return res.json({ users: [] });
 
-    const like = `%${q.toLowerCase()}%`;
+    const like = `%${q}%`;
     const { rows } = await pool.query(
       `SELECT
-         u.id, u.first_name, u.last_name, u.email, u.avatar_url,
+         u.id, u.username, u.avatar_url, u.selected_avatar_id,
          (u.last_seen_at >= NOW() - INTERVAL '5 minutes') AS online,
+         COALESCE(us.total_xp, 0) AS xp,
+         COALESCE(lb.rank, NULL) AS rank,
          EXISTS (
            SELECT 1 FROM friendships f
            WHERE (f.user_one_id = u.id AND f.user_two_id = $1)
@@ -137,18 +139,19 @@ router.get('/search', async (req, res) => {
              AND fr.receiver_id = $1
          ) AS request_received
        FROM users u
+       LEFT JOIN user_stats us ON us.user_id = u.id
+       LEFT JOIN (
+         SELECT user_id, RANK() OVER (ORDER BY total_xp DESC NULLS LAST) AS rank
+         FROM user_stats
+       ) lb ON lb.user_id = u.id
        WHERE u.id <> $1
-         AND (
-           LOWER(u.email) LIKE $2 OR
-           LOWER(u.first_name) LIKE $2 OR
-           LOWER(u.last_name) LIKE $2 OR
-           LOWER(TRIM(u.first_name || ' ' || u.last_name)) LIKE $2
-         )
+         AND LOWER(COALESCE(u.username, '')) LIKE $2
        ORDER BY
-         CASE WHEN LOWER(TRIM(u.first_name || ' ' || u.last_name)) LIKE $2 THEN 0 ELSE 1 END,
-         u.first_name, u.last_name
+         CASE WHEN LOWER(COALESCE(u.username, '')) = $3 THEN 0 ELSE 1 END,
+         COALESCE(us.total_xp, 0) DESC,
+         u.username ASC
        LIMIT 12`,
-      [userId, like]
+      [userId, like, q]
     );
 
     res.json({ users: rows });
@@ -166,10 +169,9 @@ router.get('/friends', async (req, res) => {
     const { rows: friends } = await pool.query(
       `SELECT
          CASE WHEN f.user_one_id = $1 THEN u2.id ELSE u1.id END AS id,
-         CASE WHEN f.user_one_id = $1 THEN u2.first_name ELSE u1.first_name END AS first_name,
-         CASE WHEN f.user_one_id = $1 THEN u2.last_name ELSE u1.last_name END AS last_name,
-         CASE WHEN f.user_one_id = $1 THEN u2.email ELSE u1.email END AS email,
+         CASE WHEN f.user_one_id = $1 THEN u2.username ELSE u1.username END AS username,
          CASE WHEN f.user_one_id = $1 THEN u2.avatar_url ELSE u1.avatar_url END AS avatar_url,
+         CASE WHEN f.user_one_id = $1 THEN u2.selected_avatar_id ELSE u1.selected_avatar_id END AS selected_avatar_id,
          CASE WHEN f.user_one_id = $1 THEN (u2.last_seen_at >= NOW() - INTERVAL '5 minutes') ELSE (u1.last_seen_at >= NOW() - INTERVAL '5 minutes') END AS online,
          f.created_at
        FROM friendships f
@@ -182,8 +184,8 @@ router.get('/friends', async (req, res) => {
 
     const { rows: requests } = await pool.query(
       `SELECT fr.id, fr.requester_id, fr.receiver_id, fr.status, fr.created_at,
-              requester.first_name AS requester_first_name, requester.last_name AS requester_last_name, requester.email AS requester_email, requester.avatar_url AS requester_avatar_url,
-              receiver.first_name AS receiver_first_name, receiver.last_name AS receiver_last_name, receiver.email AS receiver_email, receiver.avatar_url AS receiver_avatar_url
+              requester.username AS requester_username, requester.avatar_url AS requester_avatar_url, requester.selected_avatar_id AS requester_selected_avatar_id,
+              receiver.username AS receiver_username, receiver.avatar_url AS receiver_avatar_url, receiver.selected_avatar_id AS receiver_selected_avatar_id
        FROM friend_requests fr
        JOIN users requester ON requester.id = fr.requester_id
        JOIN users receiver ON receiver.id = fr.receiver_id
@@ -201,16 +203,14 @@ router.get('/friends', async (req, res) => {
         direction: r.requester_id === userId ? 'outgoing' : 'incoming',
         user: r.requester_id === userId ? {
           id: r.receiver_id,
-          first_name: r.receiver_first_name,
-          last_name: r.receiver_last_name,
-          email: r.receiver_email,
+          username: r.receiver_username,
           avatar_url: r.receiver_avatar_url,
+          selected_avatar_id: r.receiver_selected_avatar_id,
         } : {
           id: r.requester_id,
-          first_name: r.requester_first_name,
-          last_name: r.requester_last_name,
-          email: r.requester_email,
+          username: r.requester_username,
           avatar_url: r.requester_avatar_url,
+          selected_avatar_id: r.requester_selected_avatar_id,
         },
       })),
     });
@@ -280,13 +280,13 @@ router.post('/friends/request', async (req, res) => {
       [requesterId, receiverId]
     );
 
-    const { rows: meRows } = await pool.query('SELECT first_name, last_name FROM users WHERE id = $1', [requesterId]);
+    const { rows: meRows } = await pool.query('SELECT username FROM users WHERE id = $1', [requesterId]);
     const me = meRows[0];
     await createNotification(pool, {
       userId: receiverId,
       type: 'friend_request',
       title: 'Novi zahtjev za prijateljstvo',
-      body: `${me.first_name} ${me.last_name}`.trim() || 'Novi korisnik',
+      body: me?.username ? `@${me.username}` : 'Novi korisnik',
       data: { request_id: rows[0].id, requester_id: requesterId },
     });
 
@@ -348,10 +348,17 @@ router.get('/:id', async (req, res) => {
   try {
     const pool = req.app.get('pool');
     const { rows } = await pool.query(
-      `SELECT id, first_name, last_name, email, avatar_url,
-              (last_seen_at >= NOW() - INTERVAL '5 minutes') AS online
-       FROM users
-       WHERE id = $1`,
+      `SELECT u.id, u.username, u.avatar_url, u.selected_avatar_id,
+              (u.last_seen_at >= NOW() - INTERVAL '5 minutes') AS online,
+              COALESCE(us.total_xp, 0) AS xp,
+              COALESCE(lb.rank, NULL) AS rank
+       FROM users u
+       LEFT JOIN user_stats us ON us.user_id = u.id
+       LEFT JOIN (
+         SELECT user_id, RANK() OVER (ORDER BY total_xp DESC NULLS LAST) AS rank
+         FROM user_stats
+       ) lb ON lb.user_id = u.id
+       WHERE u.id = $1`,
       [req.params.id]
     );
     if (!rows.length) return res.status(404).json({ error: 'User not found' });

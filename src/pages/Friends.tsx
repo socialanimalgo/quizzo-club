@@ -126,8 +126,8 @@ export default function Friends() {
                 <div key={friend.id} className="btl sh-3 p-3 flex items-center gap-3 anim-slidein" style={{ background: '#fff', animationDelay: `${index * 0.04}s` }}>
                   <Avatar user={friend} size={48} className="btl btl-sm shrink-0" background="var(--paper-deep)" textClassName="text-[24px]" />
                   <div className="flex-1 min-w-0">
-                    <div className="font-display text-[14.5px] leading-tight truncate">{friend.first_name} {friend.last_name}</div>
-                    <div className="font-mono text-[10px] opacity-60 mt-0.5 truncate">{friend.email}</div>
+                    <div className="font-display text-[14.5px] leading-tight truncate">@{friend.username || 'igrac'}</div>
+                    <div className="font-mono text-[10px] opacity-60 mt-0.5 truncate">{friend.online ? 'Online' : 'Offline'}</div>
                   </div>
                   <button
                     onClick={() => navigate(`/challenges?opponent=${friend.id}`)}
@@ -163,7 +163,7 @@ export default function Friends() {
                       <div className="flex items-center gap-3">
                         <Avatar user={request.user} size={48} className="btl btl-sm" background="var(--paper-deep)" textClassName="text-[24px]" />
                         <div className="flex-1 min-w-0">
-                          <div className="font-display text-[14.5px] leading-tight truncate">{request.user.first_name} {request.user.last_name}</div>
+                          <div className="font-display text-[14.5px] leading-tight truncate">@{request.user.username || 'igrac'}</div>
                           <div className="font-mono text-[10px] opacity-60 mt-0.5">Zahtjev · {new Date(request.created_at).toLocaleDateString('hr-HR')}</div>
                         </div>
                       </div>
@@ -185,7 +185,7 @@ export default function Friends() {
                     <div key={request.id} className="btl sh-2 p-3 flex items-center gap-3" style={{ background: 'var(--paper-deep)' }}>
                       <Avatar user={request.user} size={40} className="btl btl-sm" background="#fff" textClassName="text-[20px]" />
                       <div className="flex-1 min-w-0">
-                        <div className="font-display text-[13.5px] truncate">{request.user.first_name} {request.user.last_name}</div>
+                        <div className="font-display text-[13.5px] truncate">@{request.user.username || 'igrac'}</div>
                         <div className="font-mono text-[9.5px] opacity-60">Čeka odgovor</div>
                       </div>
                       <span className="chip">ČEKA</span>
@@ -207,7 +207,7 @@ export default function Friends() {
         {tab === 'find' && (
           <>
             <div className="relative">
-              <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Ime, prezime ili email…" className="inp pl-10" />
+              <input value={query} onChange={e => setQuery(e.target.value.toLowerCase())} placeholder="@username" className="inp pl-10" />
               <div className="absolute left-3 top-1/2 -translate-y-1/2 opacity-50">
                 <Icon name="sparkle" className="w-4 h-4" stroke={2.2} />
               </div>
@@ -221,8 +221,8 @@ export default function Friends() {
                   <div key={result.id} className="btl sh-2 p-2.5 flex items-center gap-3 anim-slidein" style={{ background: '#fff', animationDelay: `${index * 0.03}s` }}>
                     <Avatar user={result} size={44} className="btl btl-sm" background="var(--paper-deep)" textClassName="text-[22px]" />
                     <div className="flex-1 min-w-0">
-                      <div className="font-display text-[13.5px] truncate">{result.first_name} {result.last_name}</div>
-                      <div className="font-mono text-[9.5px] opacity-60 mt-0.5 truncate">{result.email}</div>
+                      <div className="font-display text-[13.5px] truncate">@{result.username || 'igrac'}</div>
+                      <div className="font-mono text-[9.5px] opacity-60 mt-0.5 truncate">{result.rank ? `#${result.rank} · ` : ''}{Number(result.xp || 0).toLocaleString('hr-HR')} XP</div>
                     </div>
                     {result.is_friend ? (
                       <button disabled className="btl btl-sm px-2.5 py-1.5 opacity-60" style={{ background: 'var(--paper-deep)', borderWidth: 2 }}>
@@ -241,7 +241,7 @@ export default function Friends() {
                 ))}
                 {!searchResults.length && !searching && (
                   <div className="btl sh-2 p-6 text-center" style={{ background: '#fff' }}>
-                    <div className="font-mono text-[10.5px] opacity-60">Nema rezultata za "{query}"</div>
+                    <div className="font-mono text-[10.5px] opacity-60">Nema rezultata za @{query.replace(/^@/, '')}</div>
                   </div>
                 )}
               </div>
