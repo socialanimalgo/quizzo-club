@@ -258,7 +258,37 @@ async function saveMatch(pool, match) {
   );
   const next = await loadMatch(pool, rows[0].id);
   publishKvizopoli(next.id, serializeMatch(next));
+
+  if (next.status === 'complete') {
+    awardKvizopoliXp(pool, next).catch(err => console.error('kvizopoli xp award error:', err));
+  }
+
   return next;
+}
+
+async function awardKvizopoliXp(pool, match) {
+  // Claim the award slot atomically — only one caller will get rowCount > 0
+  const { rowCount } = await pool.query(
+    'UPDATE kvizopoli_matches SET xp_awarded = true WHERE id = $1 AND xp_awarded = false',
+    [match.id]
+  );
+  if (!rowCount) return; // already awarded
+
+  const players = Array.isArray(match.players) ? match.players : [];
+  await Promise.all(players.map(player => {
+    const correctAnswers = Number(player.correctAnswers) || 0;
+    const isWinner = player.id === match.winner_id;
+    const xp = 50 + correctAnswers * 5 + (isWinner ? 100 : 0);
+    return pool.query(
+      `INSERT INTO user_stats (user_id, xp, total_quizzes)
+       VALUES ($1, $2, 1)
+       ON CONFLICT (user_id) DO UPDATE SET
+         xp = user_stats.xp + $2,
+         total_quizzes = user_stats.total_quizzes + 1,
+         updated_at = NOW()`,
+      [player.id, xp]
+    );
+  }));
 }
 
 async function normalizeLegacyLobbyMatch(pool, match) {

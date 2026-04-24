@@ -296,6 +296,7 @@ CREATE TABLE IF NOT EXISTS kvizopoli_matches (
 
 ALTER TABLE kvizopoli_matches ADD COLUMN IF NOT EXISTS eliminated_player_ids JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE kvizopoli_matches ADD COLUMN IF NOT EXISTS winner_id UUID REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE kvizopoli_matches ADD COLUMN IF NOT EXISTS xp_awarded BOOLEAN NOT NULL DEFAULT false;
 
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_active_player ON kvizopoli_matches(active_player_id);
 CREATE INDEX IF NOT EXISTS idx_kvizopoli_matches_join_code ON kvizopoli_matches(join_code);
