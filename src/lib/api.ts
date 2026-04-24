@@ -144,6 +144,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ action }),
       }),
+    avatarBank: () => apiFetch<{ catalog: { basic: any[]; premium: any[] }; selected_avatar_id: string | null; owned_avatar_ids: string[]; gems: number }>('/users/avatar-bank'),
+    selectAvatar: (avatar_id: string) =>
+      apiFetch<{ user: any }>('/users/avatar-bank/select', { method: 'POST', body: JSON.stringify({ avatar_id }) }),
+    buyAvatar: (avatar_id: string) =>
+      apiFetch<{ avatar_id: string; gems: number; selected_avatar_id: string | null }>('/users/avatar-bank/purchase', { method: 'POST', body: JSON.stringify({ avatar_id }) }),
   },
   subscription: {
     get: () => apiFetch<any>('/subscription'),

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import AppHeader from '../components/AppHeader'
+import Avatar from '../components/Avatar'
 
 type Tab = 'alltime' | 'weekly' | 'daily'
 
@@ -62,9 +63,7 @@ export default function Leaderboard() {
             <div className="w-9 h-9 btl btl-sm grid place-items-center font-mono font-bold text-[12px] tabular" style={{ background: '#fff', borderWidth: 2 }}>
               {data.my_rank.rank}
             </div>
-            <div className="w-8 h-8 btl btl-sm grid place-items-center font-bold text-sm" style={{ background: '#fff' }}>
-              {data.my_rank.first_name?.[0]?.toUpperCase()}
-            </div>
+            <Avatar user={data.my_rank} size={32} className="btl btl-sm" background="#fff" textClassName="text-sm" />
             <div className="flex-1">
               <div className="font-display text-[14px]">{data.my_rank.first_name}</div>
               <div className="font-mono text-[10px] opacity-70">{sub(data.my_rank)}</div>
@@ -129,9 +128,7 @@ export default function Leaderboard() {
                       <div className="w-7 h-7 btl btl-sm grid place-items-center font-mono text-[11px] font-bold tabular" style={{ background: 'var(--paper-deep)', borderWidth: 1.5 }}>
                         {rank}
                       </div>
-                      <div className="w-8 h-8 btl btl-sm grid place-items-center font-bold text-sm" style={{ background: isMe ? 'var(--accent)' : '#fff', borderWidth: 1.5 }}>
-                        {row.first_name?.[0]?.toUpperCase()}
-                      </div>
+                      <Avatar user={row} size={32} className="btl btl-sm" background={isMe ? 'var(--accent)' : '#fff'} textClassName="text-sm" />
                       <div className="flex-1 min-w-0">
                         <div className="font-display text-[13px] truncate">
                           {row.first_name} {row.last_name}

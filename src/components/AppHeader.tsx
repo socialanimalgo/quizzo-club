@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import QuizzoLogo from './QuizzoLogo'
 import Icon from './Icon'
+import Avatar from './Avatar'
 import { useWallet } from '../context/WalletContext'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
 
@@ -95,10 +96,10 @@ export default function AppHeader() {
           {/* Avatar */}
           <button
             onClick={() => navigate('/profile')}
-            className="w-9 h-9 btl btl-sm sh-2 grid place-items-center font-bold text-[16px]"
+            className="w-9 h-9 btl btl-sm sh-2 overflow-hidden"
             style={{ background: 'var(--accent)' }}
           >
-            {user?.first_name?.[0]?.toUpperCase() || '?'}
+            <Avatar user={user} size={36} background="var(--accent)" className="w-full h-full" textClassName="text-[16px]" />
           </button>
         </div>
       </div>

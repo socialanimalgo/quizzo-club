@@ -18,6 +18,7 @@ import Shop from './pages/Shop'
 import Categories from './pages/Categories'
 import Kvizopoli from './pages/Kvizopoli'
 import HotTopic from './pages/HotTopic'
+import AvatarBank from './pages/AvatarBank'
 import { api } from './lib/api'
 import LoadingScreen from './components/LoadingScreen'
 import PageTransition from './components/PageTransition'
@@ -153,7 +154,7 @@ function AppShell() {
     setInviteQueue(current => current.filter(item => item.id !== currentInvite.id))
   }
 
-  const showBottomNav = Boolean(user) && (['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily', '/shop', '/categories'].includes(location.pathname) || location.pathname.startsWith('/hot-topics/'))
+  const showBottomNav = Boolean(user) && (['/', '/leaderboard', '/challenges', '/profile', '/friends', '/history', '/daily', '/shop', '/categories', '/avatars'].includes(location.pathname) || location.pathname.startsWith('/hot-topics/'))
 
   return (
     <div className="min-h-screen overflow-hidden">
@@ -179,6 +180,7 @@ function AppShell() {
           <Route path="/categories" element={<Categories />} />
           <Route path="/kvizopoli" element={<Kvizopoli />} />
           <Route path="/hot-topics/:slug" element={<HotTopic />} />
+          <Route path="/avatars" element={<AvatarBank />} />
         </Routes>
       </div>
       {showBottomNav && <BottomNav />}

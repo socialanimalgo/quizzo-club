@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import Avatar from '../components/Avatar'
 
 type Tab = 'all' | 'wins' | 'losses'
 
@@ -94,9 +95,7 @@ export default function History() {
             return (
               <div key={match.id} className="btl sh-2 p-3 anim-slidein" style={{ background: '#fff', animationDelay: `${index * 0.03}s` }}>
                 <div className="flex items-center gap-3">
-                  <div className="btl btl-sm w-11 h-11 grid place-items-center text-[22px] font-bold shrink-0" style={{ background: 'var(--paper-deep)', borderWidth: 2 }}>
-                    {match.opponent_name?.[0]?.toUpperCase() || '?'}
-                  </div>
+                  <Avatar user={{ first_name: match.opponent_name, avatar_url: match.opponent_avatar_url }} size={44} className="btl btl-sm shrink-0" background="var(--paper-deep)" textClassName="text-[22px]" />
                   <div className="flex-1 min-w-0">
                     <div className="font-display text-[14.5px] leading-tight truncate">{match.opponent_name}</div>
                     <div className="font-mono text-[10px] opacity-60 mt-0.5">{new Date(match.completed_at || match.created_at).toLocaleString('hr-HR')}</div>

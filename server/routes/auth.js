@@ -5,6 +5,7 @@ const https = require('https');
 const { authMiddleware } = require('../middleware/auth');
 const { sendWelcomeEmail, sendNewUserAlert } = require('../lib/email');
 const { getWallet, grantPowerup } = require('../lib/powerups');
+const { getAvatarUrl } = require('../lib/avatar-bank');
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-in-production';
@@ -24,7 +25,8 @@ function sanitizeUser(user) {
     email: user.email,
     first_name: user.first_name,
     last_name: user.last_name,
-    avatar_url: user.avatar_url || null,
+    avatar_url: getAvatarUrl(user.selected_avatar_id, user.avatar_url || null),
+    selected_avatar_id: user.selected_avatar_id || null,
     is_admin: Boolean(user.is_admin || user.email === process.env.ADMIN_EMAIL),
     is_blocked: Boolean(user.is_blocked),
     coins: Number(user.coins) || 0,

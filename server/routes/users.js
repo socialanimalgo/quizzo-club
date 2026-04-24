@@ -2,12 +2,110 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
 const { createNotification } = require('../lib/notifications');
+const { BASIC_IDS, getAvatarCatalog, getAvatarOption } = require('../lib/avatar-bank');
 
 function sortPair(a, b) {
   return a < b ? [a, b] : [b, a];
 }
 
 router.use(authMiddleware);
+
+
+async function getOwnedAvatarIds(pool, userId) {
+  const { rows } = await pool.query(
+    'SELECT avatar_id FROM user_avatar_ownership WHERE user_id = $1 ORDER BY created_at ASC',
+    [userId]
+  );
+  return [...BASIC_IDS, ...rows.map(row => row.avatar_id)];
+}
+
+router.get('/avatar-bank', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const [catalog, ownedAvatarIdsResult, userRows] = await Promise.all([
+      Promise.resolve(getAvatarCatalog()),
+      getOwnedAvatarIds(pool, req.userId),
+      pool.query('SELECT selected_avatar_id, gems FROM users WHERE id = $1', [req.userId]),
+    ]);
+
+    if (!userRows.rows.length) return res.status(404).json({ error: 'User not found' });
+
+    res.json({
+      catalog,
+      selected_avatar_id: userRows.rows[0].selected_avatar_id || null,
+      owned_avatar_ids: ownedAvatarIdsResult,
+      gems: Number(userRows.rows[0].gems) || 0,
+    });
+  } catch (err) {
+    console.error('Avatar bank error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/avatar-bank/select', async (req, res) => {
+  try {
+    const pool = req.app.get('pool');
+    const { avatar_id } = req.body || {};
+    const avatar = getAvatarOption(avatar_id);
+    if (!avatar || !avatar.active) return res.status(400).json({ error: 'Invalid avatar_id' });
+
+    const ownedAvatarIds = await getOwnedAvatarIds(pool, req.userId);
+    if (!ownedAvatarIds.includes(avatar_id)) return res.status(403).json({ error: 'Avatar nije otključan' });
+
+    const { rows } = await pool.query(
+      'UPDATE users SET selected_avatar_id = $1, avatar_url = $2 WHERE id = $3 RETURNING id, selected_avatar_id, avatar_url',
+      [avatar_id, avatar.image_url, req.userId]
+    );
+
+    res.json({ user: rows[0] });
+  } catch (err) {
+    console.error('Select avatar error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+router.post('/avatar-bank/purchase', async (req, res) => {
+  const pool = req.app.get('pool');
+  const client = await pool.connect();
+  try {
+    const { avatar_id } = req.body || {};
+    const avatar = getAvatarOption(avatar_id);
+    if (!avatar || avatar.pack !== 'premium') return res.status(400).json({ error: 'Invalid premium avatar' });
+
+    await client.query('BEGIN');
+    const { rows: userRows } = await client.query('SELECT gems FROM users WHERE id = $1 FOR UPDATE', [req.userId]);
+    if (!userRows.length) throw new Error('User not found');
+
+    const { rows: ownedRows } = await client.query('SELECT 1 FROM user_avatar_ownership WHERE user_id = $1 AND avatar_id = $2', [req.userId, avatar_id]);
+    if (ownedRows.length) {
+      await client.query('ROLLBACK');
+      return res.status(409).json({ error: 'Avatar već posjeduješ' });
+    }
+
+    const gems = Number(userRows[0].gems) || 0;
+    if (gems < Number(avatar.price_gems || 0)) {
+      await client.query('ROLLBACK');
+      return res.status(422).json({ error: 'Nedovoljno dragulja' });
+    }
+
+    await client.query('UPDATE users SET gems = gems - $1 WHERE id = $2', [avatar.price_gems, req.userId]);
+    await client.query('INSERT INTO user_avatar_ownership (user_id, avatar_id, source) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING', [req.userId, avatar_id, 'purchase']);
+    const { rows: updatedRows } = await client.query('SELECT gems, selected_avatar_id FROM users WHERE id = $1', [req.userId]);
+    await client.query('COMMIT');
+
+    res.json({
+      avatar_id,
+      gems: Number(updatedRows[0].gems) || 0,
+      selected_avatar_id: updatedRows[0].selected_avatar_id || null,
+    });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('Purchase avatar error:', err);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    client.release();
+  }
+});
 
 router.get('/search', async (req, res) => {
   try {

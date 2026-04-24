@@ -46,6 +46,7 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS gems INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_daily_reward_date DATE;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ DEFAULT NOW();
+ALTER TABLE users ADD COLUMN IF NOT EXISTS selected_avatar_id TEXT;
 
 -- Analytics: page visits
 CREATE TABLE IF NOT EXISTS page_visits (
@@ -186,6 +187,14 @@ CREATE TABLE IF NOT EXISTS admin_actions (
   action TEXT NOT NULL,
   payload JSONB,
   created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_avatar_ownership (
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  avatar_id TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'purchase',
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  PRIMARY KEY (user_id, avatar_id)
 );
 
 -- Challenges / Hunter Mode

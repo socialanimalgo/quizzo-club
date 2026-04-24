@@ -6,6 +6,7 @@ import Icon from '../components/Icon'
 import { useWallet } from '../context/WalletContext'
 import { CORE_CATEGORIES, HOT_TOPIC } from '../data/categories'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
+import Avatar from '../components/Avatar'
 
 const WELCOME_TILES = [
   { icon: 'globe', hue: 220 },
@@ -193,8 +194,8 @@ export default function Home() {
                 <span className="text-[12px] leading-none">🔥</span>
                 <span className="font-mono font-bold text-[11px] tabular">{displayUser?.current_streak ?? 0}</span>
               </div>
-              <Link to="/profile" className="w-9 h-9 btl btl-sm sh-2 grid place-items-center font-bold text-[16px]" style={{ background: 'var(--accent)' }}>
-                {displayUser.first_name?.[0]?.toUpperCase()}
+              <Link to="/profile" className="w-9 h-9 btl btl-sm sh-2 overflow-hidden" style={{ background: 'var(--accent)' }}>
+                <Avatar user={displayUser} size={36} className="w-full h-full" background="var(--accent)" textClassName="text-[16px]" />
               </Link>
             </div>
           </div>

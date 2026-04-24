@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
+import Avatar from '../components/Avatar'
 
 type Tab = 'friends' | 'requests' | 'find'
 
@@ -123,9 +124,7 @@ export default function Friends() {
             <div className="flex flex-col gap-2">
               {friends.map((friend, index) => (
                 <div key={friend.id} className="btl sh-3 p-3 flex items-center gap-3 anim-slidein" style={{ background: '#fff', animationDelay: `${index * 0.04}s` }}>
-                  <div className="btl btl-sm w-12 h-12 grid place-items-center text-[24px] font-bold shrink-0" style={{ background: 'var(--paper-deep)', borderWidth: 2 }}>
-                    {friend.first_name?.[0]?.toUpperCase() || '?'}
-                  </div>
+                  <Avatar user={friend} size={48} className="btl btl-sm shrink-0" background="var(--paper-deep)" textClassName="text-[24px]" />
                   <div className="flex-1 min-w-0">
                     <div className="font-display text-[14.5px] leading-tight truncate">{friend.first_name} {friend.last_name}</div>
                     <div className="font-mono text-[10px] opacity-60 mt-0.5 truncate">{friend.email}</div>
@@ -162,9 +161,7 @@ export default function Friends() {
                   {incoming.map(request => (
                     <div key={request.id} className="btl sh-3 p-3" style={{ background: '#fff' }}>
                       <div className="flex items-center gap-3">
-                        <div className="btl btl-sm w-12 h-12 grid place-items-center text-[24px] font-bold" style={{ background: 'var(--paper-deep)', borderWidth: 2 }}>
-                          {request.user.first_name?.[0]?.toUpperCase() || '?'}
-                        </div>
+                        <Avatar user={request.user} size={48} className="btl btl-sm" background="var(--paper-deep)" textClassName="text-[24px]" />
                         <div className="flex-1 min-w-0">
                           <div className="font-display text-[14.5px] leading-tight truncate">{request.user.first_name} {request.user.last_name}</div>
                           <div className="font-mono text-[10px] opacity-60 mt-0.5">Zahtjev · {new Date(request.created_at).toLocaleDateString('hr-HR')}</div>
@@ -186,9 +183,7 @@ export default function Friends() {
                 <div className="flex flex-col gap-2">
                   {outgoing.map(request => (
                     <div key={request.id} className="btl sh-2 p-3 flex items-center gap-3" style={{ background: 'var(--paper-deep)' }}>
-                      <div className="btl btl-sm w-10 h-10 grid place-items-center text-[20px] font-bold" style={{ background: '#fff', borderWidth: 1.5 }}>
-                        {request.user.first_name?.[0]?.toUpperCase() || '?'}
-                      </div>
+                      <Avatar user={request.user} size={40} className="btl btl-sm" background="#fff" textClassName="text-[20px]" />
                       <div className="flex-1 min-w-0">
                         <div className="font-display text-[13.5px] truncate">{request.user.first_name} {request.user.last_name}</div>
                         <div className="font-mono text-[9.5px] opacity-60">Čeka odgovor</div>
@@ -224,9 +219,7 @@ export default function Friends() {
               <div className="flex flex-col gap-2">
                 {searchResults.map((result, index) => (
                   <div key={result.id} className="btl sh-2 p-2.5 flex items-center gap-3 anim-slidein" style={{ background: '#fff', animationDelay: `${index * 0.03}s` }}>
-                    <div className="btl btl-sm w-11 h-11 grid place-items-center text-[22px] font-bold" style={{ background: 'var(--paper-deep)', borderWidth: 2 }}>
-                      {result.first_name?.[0]?.toUpperCase() || '?'}
-                    </div>
+                    <Avatar user={result} size={44} className="btl btl-sm" background="var(--paper-deep)" textClassName="text-[22px]" />
                     <div className="flex-1 min-w-0">
                       <div className="font-display text-[13.5px] truncate">{result.first_name} {result.last_name}</div>
                       <div className="font-mono text-[9.5px] opacity-60 mt-0.5 truncate">{result.email}</div>

@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import AppHeader from '../components/AppHeader'
+import Avatar from '../components/Avatar'
 import { useNotificationSummary } from '../hooks/useNotificationSummary'
 import { useFriendsSummary } from '../hooks/useFriendsSummary'
 import { useWallet } from '../context/WalletContext'
@@ -83,7 +84,7 @@ export default function Profile() {
     {
       id: 'shop',
       label: 'Shop',
-      value: `🪙 ${wallet.coins} · 💎 ${wallet.gems}`,
+      value: `${wallet.coins} coins · ${wallet.gems} gems`,
       icon: 'bag',
       tone: '#fff',
       href: '/shop',
@@ -96,13 +97,11 @@ export default function Profile() {
 
       <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto w-full px-4 py-4 space-y-3 app-scroll-with-nav">
         {/* Avatar card */}
-        <div className="btl btl-lg sh-ink-acc p-5 text-center" style={{ background: '#fff' }}>
-          <div className="w-20 h-20 btl btl-sm grid place-items-center font-bold text-[36px] mx-auto mb-3"
-            style={{ background: 'var(--accent)' }}>
-            {user.first_name?.[0]?.toUpperCase()}
-          </div>
+        <button onClick={() => navigate('/avatars')} className="btl btl-lg sh-ink-acc p-5 text-center w-full" style={{ background: '#fff' }}>
+          <Avatar user={user} size={80} className="btl btl-sm sh-2 mx-auto mb-3" background="var(--accent)" textClassName="text-[36px]" />
           <div className="font-display text-[24px] leading-tight">{user.first_name} {user.last_name}</div>
           <div className="font-mono text-[10px] opacity-60 uppercase tracking-widest mt-1">{user.email}</div>
+          <div className="font-mono text-[10px] font-bold uppercase tracking-widest mt-2 opacity-60">Avatar banka →</div>
           <div className="mt-3 btl-sm btl" style={{ background: 'var(--paper)', padding: 2, height: 12, borderRadius: 999 }}>
             <div style={{
               height: '100%', width: `${Math.min(100, (xp % 500) / 5)}%`,
@@ -111,7 +110,7 @@ export default function Profile() {
             }} />
           </div>
           <div className="font-mono text-[10px] font-bold tabular mt-1 opacity-60">{xp} XP</div>
-        </div>
+        </button>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-2">

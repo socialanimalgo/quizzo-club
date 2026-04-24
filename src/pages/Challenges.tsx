@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { api } from '../lib/api'
 import Icon from '../components/Icon'
 import AppHeader from '../components/AppHeader'
+import Avatar from '../components/Avatar'
 
 type Mode = 'challenge' | 'hunter'
 
@@ -83,9 +84,7 @@ export default function Challenges() {
       <div className="flex-1 overflow-y-auto no-scrollbar max-w-xl mx-auto px-4 py-4 space-y-3 w-full app-scroll-with-nav">
         {opponent && (
           <div className="btl sh-3 p-3 flex items-center gap-3" style={{ background: 'var(--accent-soft)' }}>
-            <div className="btl btl-sm w-10 h-10 grid place-items-center text-[20px] font-bold" style={{ background: '#fff', borderWidth: 2 }}>
-              {opponent.first_name?.[0]?.toUpperCase() || '?'}
-            </div>
+            <Avatar user={opponent} size={40} className="btl btl-sm" background="#fff" textClassName="text-[20px]" />
             <div className="flex-1">
               <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60">Izazov prema</div>
               <div className="font-display text-[15px]">{opponent.first_name} {opponent.last_name}</div>
@@ -105,9 +104,7 @@ export default function Challenges() {
             <div className="flex flex-col gap-2">
               {friends.slice(0, 4).map(friend => (
                 <div key={friend.id} className="flex items-center gap-3">
-                  <div className="btl btl-sm w-10 h-10 grid place-items-center text-[18px] font-bold" style={{ background: 'var(--paper-deep)', borderWidth: 2 }}>
-                    {friend.first_name?.[0]?.toUpperCase() || '?'}
-                  </div>
+                  <Avatar user={friend} size={40} className="btl btl-sm" background="var(--paper-deep)" textClassName="text-[18px]" />
                   <div className="flex-1 min-w-0">
                     <div className="font-display text-[13.5px] truncate">{friend.first_name} {friend.last_name}</div>
                     <div className="font-mono text-[9.5px] opacity-60 truncate">{friend.email}</div>
