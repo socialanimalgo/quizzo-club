@@ -77,6 +77,19 @@ export default function Kvizopoli() {
     return () => window.clearInterval(id)
   }, [])
 
+  // Strip stale ?match= param on entry — only ?code= is meaningful for boot logic
+  useEffect(() => {
+    setParams(prev => {
+      if (!prev.get('code') && prev.get('match')) {
+        const next = new URLSearchParams(prev)
+        next.delete('match')
+        return next
+      }
+      return prev
+    }, { replace: true })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   useEffect(() => {
     if (viewer === undefined) return
     if (!viewer) return
@@ -86,16 +99,7 @@ export default function Kvizopoli() {
         setLoading(true)
         setError('')
         const result = joinCode ? await api.kvizopoli.join(joinCode) : await api.kvizopoli.create()
-        if (!cancelled) {
-          setMatch(result.match)
-          if (!joinCode) {
-            setParams(prev => {
-              const next = new URLSearchParams(prev)
-              next.set('match', result.match.id)
-              return next
-            })
-          }
-        }
+        if (!cancelled) setMatch(result.match)
       } catch (err: any) {
         if (!cancelled) setError(err.message || 'Kvizopoli nije dostupan')
       } finally {
@@ -103,10 +107,10 @@ export default function Kvizopoli() {
       }
     }
     void boot()
-    return () => {
-      cancelled = true
-    }
-  }, [joinCode, navigate, setParams, viewer])
+    return () => { cancelled = true }
+  // setParams intentionally excluded — it's a setter and would cause an infinite loop
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [joinCode, viewer])
 
   useEffect(() => {
     if (!match?.id) return
@@ -269,7 +273,26 @@ export default function Kvizopoli() {
   }, [match?.currentQuestion?.spaceId])
 
   if (loading) {
-    return <div className="min-h-screen grid place-items-center" style={{ background: 'var(--paper)' }}><div className="font-mono text-[12px] opacity-60">Ucitavam Kvizopoli…</div></div>
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: 'var(--paper)' }}>
+        <div className="px-4 pt-5">
+          <button onClick={() => navigate('/')} className="btn btn-sm">
+            <Icon name="back" className="w-4 h-4" /> Natrag
+          </button>
+        </div>
+        <div className="flex-1 grid place-items-center">
+          <div className="text-center px-6">
+            <div className="font-mono text-[12px] opacity-60 mb-4">Ucitavam Kvizopoli…</div>
+            <button
+              className="btn btn-sm opacity-50"
+              onClick={() => navigate('/', { replace: true })}
+            >
+              Odustani
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   if (error && !match) {
