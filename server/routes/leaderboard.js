@@ -13,7 +13,7 @@ router.get('/', optionalAuth, async (req, res) => {
 
     if (type === 'daily') {
       const { rows: r } = await pool.query(
-        `SELECT dc.user_id, u.first_name, u.last_name, u.avatar_url,
+        `SELECT dc.user_id, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id,
                 dc.score, dc.correct_count, dc.completed_at,
                 RANK() OVER (ORDER BY dc.score DESC, dc.correct_count DESC) AS rank
          FROM daily_completions dc
@@ -26,7 +26,7 @@ router.get('/', optionalAuth, async (req, res) => {
       rows = r;
     } else if (type === 'weekly') {
       const { rows: r } = await pool.query(
-        `SELECT qs.user_id, u.first_name, u.last_name, u.avatar_url,
+        `SELECT qs.user_id, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id,
                 SUM(qs.score) AS total_score,
                 SUM(qs.correct_count) AS total_correct,
                 COUNT(qs.id) AS quizzes_played,
@@ -34,7 +34,7 @@ router.get('/', optionalAuth, async (req, res) => {
          FROM quiz_sessions qs
          JOIN users u ON u.id = qs.user_id
          WHERE qs.completed = true AND qs.completed_at >= NOW() - INTERVAL '7 days'
-         GROUP BY qs.user_id, u.first_name, u.last_name, u.avatar_url
+         GROUP BY qs.user_id, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id
          ORDER BY rank
          LIMIT $1`,
         [limit]
@@ -42,7 +42,7 @@ router.get('/', optionalAuth, async (req, res) => {
       rows = r;
     } else {
       const { rows: r } = await pool.query(
-        `SELECT us.user_id, u.first_name, u.last_name, u.avatar_url,
+        `SELECT us.user_id, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id,
                 us.xp, us.total_quizzes, us.best_score, us.current_streak,
                 us.total_correct, us.total_questions,
                 RANK() OVER (ORDER BY us.xp DESC) AS rank
@@ -64,7 +64,7 @@ router.get('/', optionalAuth, async (req, res) => {
       if (!myRank) {
         if (type === 'alltime') {
           const { rows: r } = await pool.query(
-            `SELECT us.user_id, u.first_name, u.last_name,
+            `SELECT us.user_id, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id,
                     us.xp, us.total_quizzes, us.best_score, us.current_streak,
                     (SELECT COUNT(*) + 1 FROM user_stats us2 WHERE us2.xp > us.xp) AS rank
              FROM user_stats us
@@ -84,7 +84,7 @@ router.get('/', optionalAuth, async (req, res) => {
                WHERE qs.completed = true AND qs.completed_at >= NOW() - INTERVAL '7 days'
                GROUP BY qs.user_id
              )
-             SELECT aw.*, u.first_name, u.last_name
+             SELECT aw.*, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id
              FROM all_weekly aw
              JOIN users u ON u.id = aw.user_id
              WHERE aw.user_id = $1`,
@@ -99,7 +99,7 @@ router.get('/', optionalAuth, async (req, res) => {
                FROM daily_completions dc
                WHERE dc.quiz_date = CURRENT_DATE
              )
-             SELECT ad.*, u.first_name, u.last_name
+             SELECT ad.*, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id
              FROM all_daily ad
              JOIN users u ON u.id = ad.user_id
              WHERE ad.user_id = $1`,

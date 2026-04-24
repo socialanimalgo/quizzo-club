@@ -120,9 +120,11 @@ async function getLeaderboard(pool, slug, period = 'weekly', limit = 10) {
     `WITH ranked AS (
       SELECT
         a.user_id,
+        u.username,
         u.first_name,
         u.last_name,
         u.avatar_url,
+        u.selected_avatar_id,
         SUM(a.leaderboard_points_awarded)::int AS points,
         SUM(a.correct_answers)::int AS total_correct,
         SUM(a.time_ms)::int AS total_time_ms,
@@ -133,7 +135,7 @@ async function getLeaderboard(pool, slug, period = 'weekly', limit = 10) {
       WHERE a.hot_topic_slug = $1
         AND a.created_at >= $2
         AND a.created_at < $3
-      GROUP BY a.user_id, u.first_name, u.last_name, u.avatar_url
+      GROUP BY a.user_id, u.username, u.first_name, u.last_name, u.avatar_url, u.selected_avatar_id
     )
     SELECT * FROM ranked
     ORDER BY rank

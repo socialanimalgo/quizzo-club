@@ -43,6 +43,11 @@ export const api = {
         body: JSON.stringify(data),
       }),
     logout: () => { clearToken() },
+    updateUsername: (username: string) =>
+      apiFetch<{ username: string }>('/auth/username', {
+        method: 'PUT',
+        body: JSON.stringify({ username }),
+      }),
   },
   quiz: {
     categories: () => apiFetch<{ categories: any[] }>('/quiz/categories'),

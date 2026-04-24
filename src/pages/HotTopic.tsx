@@ -21,7 +21,8 @@ function formatCountdown(target: string) {
 }
 
 function formatName(row: any) {
-  return [row.first_name, row.last_name].filter(Boolean).join(' ').trim() || 'Igrač'
+  if (row?.username) return `@${row.username}`
+  return [row?.first_name, row?.last_name].filter(Boolean).join(' ').trim() || 'Igrač'
 }
 
 function initials(row: any) {
@@ -217,7 +218,7 @@ export default function HotTopic() {
                             <div className="w-12 h-12 btl btl-sm sh-2 grid place-items-center font-mono text-[14px] font-bold mb-2" style={{ background: '#fff' }}>
                               {initials(row)}
                             </div>
-                            <div className="font-display text-[14px] truncate w-full">{row.first_name}</div>
+                            <div className="font-display text-[14px] truncate w-full">{formatName(row)}</div>
                             <div className="font-mono text-[10px] opacity-60 tabular mb-1">{row.points} pt</div>
                             <div className="btl sh-3 w-full grid place-items-center p-2" style={{ background: PODIUM_TONES[order], height }}>
                               <div className="font-mono text-[10px] font-bold uppercase tracking-widest opacity-60">#{row.rank}</div>

@@ -68,7 +68,7 @@ export default function Leaderboard() {
             </div>
             <Avatar user={data.my_rank} size={32} className="btl btl-sm" background="#fff" textClassName="text-sm" />
             <div className="flex-1">
-              <div className="font-display text-[14px]">{data.my_rank.first_name}</div>
+              <div className="font-display text-[14px]">{data.my_rank.username ? `@${data.my_rank.username}` : data.my_rank.first_name}</div>
               <div className="font-mono text-[10px] opacity-70">{sub(data.my_rank)}</div>
             </div>
             <span className="chip" style={{ background: 'var(--ink)', color: '#fff' }}>TI</span>
@@ -100,7 +100,7 @@ export default function Leaderboard() {
                   return (
                     <div key={order} className="flex flex-col items-center">
                       <div className="font-display text-[13px] mt-1 text-center truncate w-full">
-                        {row.first_name}
+                        {row.username ? `@${row.username}` : row.first_name}
                       </div>
                       <div className="font-mono text-[10px] font-bold tabular opacity-70">{score(row)}</div>
                       <div className="btl sh-3 w-full mt-1.5 grid place-items-center anim-slideup" style={{ background: bg, height: h }}>
@@ -134,7 +134,7 @@ export default function Leaderboard() {
                       <Avatar user={row} size={32} className="btl btl-sm" background={isMe ? 'var(--accent)' : '#fff'} textClassName="text-sm" />
                       <div className="flex-1 min-w-0">
                         <div className="font-display text-[13px] truncate">
-                          {row.first_name} {row.last_name}
+                          {row.username ? `@${row.username}` : `${row.first_name} ${row.last_name}`.trim()}
                           {isMe && <span className="font-mono text-[9px] opacity-60 ml-1">(ti)</span>}
                         </div>
                         <div className="font-mono text-[10px] opacity-60">{sub(row)}</div>

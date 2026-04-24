@@ -66,6 +66,7 @@ function sanitizeUser(user) {
   return {
     id: user.id,
     email: user.email,
+    username: user.username || null,
     first_name: user.first_name,
     last_name: user.last_name,
     avatar_url: getAvatarUrl(user.selected_avatar_id, user.avatar_url || null),
@@ -81,6 +82,20 @@ function sanitizeUser(user) {
     best_score: Number(user.best_score) || 0,
     rank: Number(user.rank) || 1,
   };
+}
+
+async function assignUsername(pool, userId, hint) {
+  const base = (hint || 'kvizas').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 18) || 'kvizas';
+  let suffix = 0;
+  while (true) {
+    const candidate = suffix === 0 ? base : `${base}${suffix}`;
+    const { rows } = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1', [candidate]);
+    if (!rows.length) {
+      await pool.query('UPDATE users SET username = $1 WHERE id = $2', [candidate, userId]);
+      return candidate;
+    }
+    suffix++;
+  }
 }
 
 // ── HTTPS helpers for Google API calls ──────────────────────────
@@ -141,6 +156,8 @@ router.post('/register', async (req, res) => {
     );
 
     const user = result.rows[0];
+    const username = await assignUsername(pool, user.id, first_name || email.split('@')[0]);
+    user.username = username;
     sendWelcomeEmail(user.email, user.first_name);
     sendNewUserAlert(user.email, user.first_name, user.last_name, 'email');
     res.status(201).json({ token: createToken(user.id), user: sanitizeUser(user) });
@@ -307,6 +324,7 @@ router.post('/apple/callback', express.urlencoded({ extended: false }), async (r
         [email, payload.sub, firstName, lastName, DEFAULT_AVATAR_ID, getAvatarUrl(DEFAULT_AVATAR_ID)]
       );
       user = result.rows[0];
+      await assignUsername(pool, user.id, firstName || email.split('@')[0]);
       sendWelcomeEmail(user.email, user.first_name);
       sendNewUserAlert(user.email, user.first_name, user.last_name, 'Apple');
     }
@@ -389,6 +407,7 @@ router.get('/google/callback', async (req, res) => {
           [profile.email, profile.id, profile.picture, profile.given_name || '', profile.family_name || '', DEFAULT_AVATAR_ID]
         );
         user = result.rows[0];
+        await assignUsername(pool, user.id, profile.given_name || profile.email.split('@')[0]);
         sendWelcomeEmail(user.email, user.first_name);
         sendNewUserAlert(user.email, user.first_name, user.last_name, 'Google');
       }
@@ -398,6 +417,28 @@ router.get('/google/callback', async (req, res) => {
   } catch (err) {
     console.error('Google OAuth error:', err);
     res.redirect(`${getBaseUrl()}/signin?error=server_error`);
+  }
+});
+
+const USERNAME_RE = /^[a-z0-9_]{3,20}$/;
+
+router.put('/username', authMiddleware, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username || typeof username !== 'string') return res.status(400).json({ error: 'Username required' });
+    const clean = username.trim().toLowerCase();
+    if (!USERNAME_RE.test(clean)) return res.status(400).json({ error: 'Korisničko ime mora biti 3–20 znakova, samo slova, brojevi i _' });
+    if (clean.startsWith('_') || clean.endsWith('_') || clean.includes('__')) {
+      return res.status(400).json({ error: 'Korisničko ime ne smije počinjati/završavati s _ niti imati __' });
+    }
+    const pool = req.app.get('pool');
+    const conflict = await pool.query('SELECT id FROM users WHERE LOWER(username) = $1 AND id != $2', [clean, req.userId]);
+    if (conflict.rows.length > 0) return res.status(409).json({ error: 'Korisničko ime je zauzeto' });
+    await pool.query('UPDATE users SET username = $1 WHERE id = $2', [clean, req.userId]);
+    res.json({ username: clean });
+  } catch (err) {
+    console.error('Update username error:', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

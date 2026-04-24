@@ -13,6 +13,10 @@ export default function Profile() {
   const navigate = useNavigate()
   const [user, setUser] = useState<any>(null)
   const [countryCode, setCountryCode] = useState('HR')
+  const [editingUsername, setEditingUsername] = useState(false)
+  const [usernameInput, setUsernameInput] = useState('')
+  const [usernameError, setUsernameError] = useState('')
+  const [usernameSaving, setUsernameSaving] = useState(false)
   const { unread } = useNotificationSummary()
   const { friendCount, incomingRequests } = useFriendsSummary()
   const { wallet } = useWallet()
@@ -39,6 +43,25 @@ export default function Profile() {
   function handleSignOut() {
     api.auth.logout()
     window.location.href = '/'
+  }
+
+  async function saveUsername() {
+    const clean = usernameInput.trim().toLowerCase()
+    if (!/^[a-z0-9_]{3,20}$/.test(clean) || clean.startsWith('_') || clean.endsWith('_') || clean.includes('__')) {
+      setUsernameError('3–20 znakova, samo slova/brojevi/_, bez __ ili rubnog _')
+      return
+    }
+    setUsernameSaving(true)
+    setUsernameError('')
+    try {
+      const { username } = await api.auth.updateUsername(clean)
+      setUser((u: any) => ({ ...u, username }))
+      setEditingUsername(false)
+    } catch (err: any) {
+      setUsernameError(err.message || 'Greška')
+    } finally {
+      setUsernameSaving(false)
+    }
   }
 
   const rows = [
@@ -102,6 +125,36 @@ export default function Profile() {
           <Avatar user={user} size={80} className="btl btl-sm sh-2 mx-auto mb-3" background="var(--accent)" textClassName="text-[36px]" />
           <div className="font-display text-[24px] leading-tight">{user.first_name} {user.last_name}</div>
           <div className="font-mono text-[10px] opacity-60 uppercase tracking-widest mt-1">{user.email}</div>
+          {editingUsername ? (
+            <div className="mt-2 flex flex-col items-center gap-1.5" onClick={e => e.stopPropagation()}>
+              <input
+                autoFocus
+                value={usernameInput}
+                onChange={e => { setUsernameInput(e.target.value); setUsernameError('') }}
+                onKeyDown={e => { if (e.key === 'Enter') saveUsername(); if (e.key === 'Escape') setEditingUsername(false) }}
+                placeholder="korisnicko_ime"
+                className="btl btl-sm px-3 py-1.5 font-mono text-[12px] text-center w-40"
+                style={{ background: 'var(--paper)', border: '1.5px solid var(--line)' }}
+                maxLength={20}
+              />
+              {usernameError && <div className="font-mono text-[10px] text-red-600">{usernameError}</div>}
+              <div className="flex gap-2">
+                <button onClick={saveUsername} disabled={usernameSaving} className="font-mono text-[10px] font-bold uppercase tracking-widest px-3 py-1 btl btl-sm" style={{ background: 'var(--ink)', color: '#fff' }}>
+                  {usernameSaving ? '...' : 'Spremi'}
+                </button>
+                <button onClick={() => { setEditingUsername(false); setUsernameError('') }} className="font-mono text-[10px] font-bold uppercase tracking-widest px-3 py-1 btl btl-sm" style={{ background: 'var(--paper)' }}>
+                  Odustani
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={e => { e.stopPropagation(); setUsernameInput(user.username || ''); setEditingUsername(true) }}
+              className="mt-2 font-mono text-[11px] font-bold opacity-80 hover:opacity-100"
+            >
+              @{user.username || 'postavi korisničko ime'} ✎
+            </button>
+          )}
           <div className="font-mono text-[10px] font-bold uppercase tracking-widest mt-2 opacity-60">Avatar banka →</div>
           <div className="mt-3 btl-sm btl" style={{ background: 'var(--paper)', padding: 2, height: 12, borderRadius: 999 }}>
             <div style={{
