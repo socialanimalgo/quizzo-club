@@ -491,7 +491,13 @@ router.post('/create', async (req, res) => {
 
     if (existingRows.length) {
       const existing = await normalizeLegacyLobbyMatch(pool, await loadMatch(pool, existingRows[0].id));
-      return res.json({ match: serializeMatch(await finalizeIfExpired(pool, existing)) });
+      const finalized = await finalizeIfExpired(pool, existing);
+      // If the user is alone in a lobby, dispose it so they get a fresh session
+      if (isDisposableSoloLobby(finalized, user.id)) {
+        await disposeMatch(pool, finalized.id);
+      } else {
+        return res.json({ match: serializeMatch(finalized) });
+      }
     }
 
     let joinCode = randomJoinCode();
@@ -652,7 +658,7 @@ router.post('/matches/:id/roll', async (req, res) => {
       spaceId: landedSpace.id,
       topicId: landedSpace.topicId,
       prompt: question.question,
-      answers: question.options.map((text, index) => ({ id: `a${index}`, text })),
+      answers: question.options.map((opt, index) => ({ id: `a${index}`, text: typeof opt === 'string' ? opt : opt.text })),
       correctAnswerId: `a${question.correct_index}`,
       askedAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + QUESTION_TIME_LIMIT_MS).toISOString(),
