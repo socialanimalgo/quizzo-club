@@ -151,6 +151,13 @@ function isLobby(match) {
   return match.status === 'lobby' || match.phase === 'waiting_for_players';
 }
 
+function isDisposableSoloLobby(match, userId) {
+  if (!match || !isLobby(match)) return false;
+  if ((match.players || []).length !== 1) return false;
+  if (match.host_user_id !== userId) return false;
+  return match.players[0]?.id === userId;
+}
+
 function clearTimers(matchId) {
   const matchTimer = matchEndTimers.get(matchId);
   if (matchTimer) {
@@ -256,6 +263,11 @@ async function normalizeLegacyLobbyMatch(pool, match) {
   match.started_at = null;
   match.ends_at = null;
   return saveMatch(pool, match);
+}
+
+async function disposeMatch(pool, matchId) {
+  clearTimers(matchId);
+  await pool.query('DELETE FROM kvizopoli_matches WHERE id = $1', [matchId]);
 }
 
 async function finalizeIfExpired(pool, match) {
@@ -470,7 +482,12 @@ router.post('/join', async (req, res) => {
     if (match.status === 'complete') return res.status(409).json({ error: 'Match already complete' });
 
     if (existingMembershipRows.length && existingMembershipRows[0].id !== match.id) {
-      return res.status(409).json({ error: 'Already in another active match', join_code: existingMembershipRows[0].join_code });
+      const existingMembership = await normalizeLegacyLobbyMatch(pool, await loadMatch(pool, existingMembershipRows[0].id));
+      if (isDisposableSoloLobby(existingMembership, user.id)) {
+        await disposeMatch(pool, existingMembership.id);
+      } else {
+        return res.status(409).json({ error: 'Already in another active match', join_code: existingMembershipRows[0].join_code });
+      }
     }
 
     const existing = findPlayer(match, user.id);
