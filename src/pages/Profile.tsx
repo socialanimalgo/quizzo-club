@@ -12,7 +12,6 @@ import { useLoadingOverlay } from '../context/LoadingOverlayContext'
 export default function Profile() {
   const navigate = useNavigate()
   const [user, setUser] = useState<any>(null)
-  const [myRank, setMyRank] = useState<any>(null)
   const [countryCode, setCountryCode] = useState('HR')
   const { unread } = useNotificationSummary()
   const { friendCount, incomingRequests } = useFriendsSummary()
@@ -22,7 +21,6 @@ export default function Profile() {
     api.auth.getUser().then(u => {
       if (!u) { navigate('/signin'); return }
       setUser(u)
-      api.leaderboard.get('alltime').then(d => setMyRank(d.my_rank)).catch(() => {})
     })
     fetch('/api/locale').then(r => r.json()).then(d => setCountryCode(d.countryCode || 'HR')).catch(() => {})
   }, [navigate])
@@ -31,10 +29,10 @@ export default function Profile() {
 
   if (!user) return null
 
-  const xp = myRank?.xp ?? 0
-  const rank = myRank?.rank ?? '–'
-  const quizzes = myRank?.total_quizzes ?? 0
-  const currentStreak = myRank?.current_streak ?? 0
+  const xp = user.xp ?? 0
+  const rank = user.rank ?? 1
+  const quizzes = user.total_quizzes ?? 0
+  const currentStreak = user.current_streak ?? 0
   const langLabel = countryCode === 'HR' ? 'Hrvatski' : 'English'
   const langFlag = countryCode === 'HR' ? 'HR' : 'EN'
 

@@ -76,6 +76,10 @@ function sanitizeUser(user) {
     gems: Number(user.gems) || 0,
     inventory: user.inventory || null,
     current_streak: Number(user.current_streak) || 0,
+    xp: Number(user.xp) || 0,
+    total_quizzes: Number(user.total_quizzes) || 0,
+    best_score: Number(user.best_score) || 0,
+    rank: Number(user.rank) || 1,
   };
 }
 
@@ -205,10 +209,23 @@ router.get('/me', authMiddleware, async (req, res) => {
     } finally {
       client.release();
     }
-    const wallet = await getWallet(pool, req.userId);
-    const statsResult = await pool.query('SELECT current_streak FROM user_stats WHERE user_id = $1', [req.userId]);
-    const current_streak = statsResult.rows[0]?.current_streak ?? 0;
-    res.json({ user: sanitizeUser({ ...user, inventory: wallet.inv, coins: wallet.coins, gems: wallet.gems, current_streak }) });
+    const [wallet, statsResult, rankResult] = await Promise.all([
+      getWallet(pool, req.userId),
+      pool.query('SELECT xp, total_quizzes, current_streak, best_score FROM user_stats WHERE user_id = $1', [req.userId]),
+      pool.query('SELECT COUNT(*) + 1 AS rank FROM user_stats WHERE xp > (SELECT COALESCE(xp,0) FROM user_stats WHERE user_id = $1)', [req.userId]),
+    ]);
+    const stats = statsResult.rows[0] || {};
+    res.json({ user: sanitizeUser({
+      ...user,
+      inventory: wallet.inv,
+      coins: wallet.coins,
+      gems: wallet.gems,
+      current_streak: stats.current_streak ?? 0,
+      xp: stats.xp ?? 0,
+      total_quizzes: stats.total_quizzes ?? 0,
+      best_score: stats.best_score ?? 0,
+      rank: Number(rankResult.rows[0]?.rank ?? 1),
+    }) });
   } catch (err) {
     console.error('Get me error:', err);
     res.status(500).json({ error: 'Internal server error' });
